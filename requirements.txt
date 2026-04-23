@@ -1,0 +1,15 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+werkzeug>=3.0.0
+
+# Data handling
+pandas>=2.0.0
+openpyxl>=3.1.0       # Excel support
+xlrd>=2.0.0           # Legacy .xls support
+
+# Database drivers (install what you need)
+# psycopg2-binary>=2.9.0   # PostgreSQL
+# pymysql>=1.1.0            # MySQL
+pyodbc

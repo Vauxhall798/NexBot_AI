@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Sales Dashboard</title>
+    <style>
+        /* Modern CSS Reset & Styling */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            margin-bottom: 24px;
+            color: #0f172a;
+        }
+
+        /* Table Container for Shadow and Rounding */
+        .table-container {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden; /* Keeps corners rounded */
+            border: 1px solid #e2e8f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        thead {
+            background-color: #f1f5f9;
+        }
+
+        th {
+            padding: 16px 24px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            color: #64748b;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        td {
+            padding: 16px 24px;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s ease;
+        }
+
+        /* Hover effect for rows */
+        tr:hover td {
+            background-color: #f8fafc;
+            cursor: default;
+        }
+
+        /* Styling for the Revenue Column (Green highlight) */
+        .revenue-cell {
+            font-weight: 600;
+            color: #059669;
+        }
+
+        /* Badge-style for Units */
+        .units-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Sales Dashboard</h1>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Units Sold</th>
+                    <th>Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Product A (Enterprise)</td>
+                    <td><span class="units-badge">124</span></td>
+                    <td class="revenue-cell">$12,400</td>
+                </tr>
+                <tr>
+                    <td>Product B (SaaS)</td>
+                    <td><span class="units-badge">256</span></td>
+                    <td class="revenue-cell">$25,600</td>
+                </tr>
+                <tr>
+                    <td>Product C (Hardware)</td>
+                    <td><span class="units-badge">89</span></td>
+                    <td class="revenue-cell">$8,900</td>
+                </tr>
+                <tr>
+                    <td>Product D (Consulting)</td>
+                    <td><span class="units-badge">42</span></td>
+                    <td class="revenue-cell">$42,000</td>
+                </tr>
+                <tr>
+                    <td>Product E (Mobile App)</td>
+                    <td><span class="units-badge">1,024</span></td>
+                    <td class="revenue-cell">$5,120</td>
+                </tr>
+                <tr>
+                    <td>Product F (API Access)</td>
+                    <td><span class="units-badge">312</span></td>
+                    <td class="revenue-cell">$31,200</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="chatbot-plugin.js"></script>
+<script>
+
+console.log('Initializing chatbot...');
+
+
+
+const chatbot = new AITableChatbot({
+
+apiEndpoint: 'http://localhost:5000', // ← Your backend URL
+
+apiKey: 'test_key_123' // ← Your API key
+
+});
+
+
+
+console.log('Chatbot initialized!');
+
+</script>
+</body>
+</html>

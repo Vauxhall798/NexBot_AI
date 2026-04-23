@@ -1,0 +1,20 @@
+TABLE: ItineraryExclusion
+  ExclusionId (int), ItineraryId (nvarchar), ExclusionText (nvarchar)
+TABLE: ItineraryPolicy
+  PolicyId (int), ItineraryId (nvarchar), PolicyType (nvarchar), PolicyText (nvarchar)
+TABLE: VendorMaster
+  Id (int), VendorId (nvarchar), VendorName (nvarchar), CompanyName (nvarchar), MobileNo (nvarchar), Email (nvarchar), CountryId (int), Country (nvarchar), Description (nvarchar), CreatedBy (int), CreatedDate (datetime), ModifiedBy (int), ModifiedDate (datetime)
+TABLE: ExpenseEntryItems
+  ItemId (int), ExpenseId (nvarchar), InvoiceNo (nvarchar), PackageId (nvarchar), PackageName (nvarchar), Price (decimal), Quantity (int), IGST (decimal), CGST (decimal), SGST (decimal), RowTotal (decimal), CreatedBy (int), CreatedDate (datetime)
+TABLE: ItineraryMaster
+  Id (int), ItineraryId (nvarchar), ItineraryDate (datetime), ItineraryName (nvarchar), DetailedItineraryName (nvarchar), TourName (nvarchar), TravelAgent (nvarchar), TravelDate (nvarchar), TourType (nvarchar), NoOfGuests (int), TourCode (nvarchar), GuestName (nvarchar), Phone (nvarchar), Nationality (nvarchar), Transfer (nvarchar), DiscountAmount (decimal), MainImgPath (nvarchar), FooterImgPath (nvarchar), CreatedBy (int), CreatedDate (datetime), ModifiedBy (int), ModifiedDate (datetime), BannerImgPath (nvarchar)
+TABLE: ItineraryDay
+  DayId (int), ItineraryId (nvarchar), DayNumber (int), DayTitle (nvarchar), DayDescription (nvarchar), DayInclusion (nvarchar), DayImgPath (nvarchar)
+TABLE: ItineraryCategory
+  CategoryId (int), ItineraryId (nvarchar), FieldName (nvarchar), Details (nvarchar)
+TABLE: ExpenseEntry
+  Id (int), ExpenseId (nvarchar), InvoiceNo (nvarchar), CustomerName (nvarchar), CustomerId (int), TravelDate (datetime), SalesPerson (nvarchar), Destination (nvarchar), Adults (int), PerAdultsCost (decimal), Children (int), PerChildrenCost (decimal), GSTPercentage (decimal), GSTAmount (decimal), TotalAmount (decimal), PaidAmount (decimal), VendorName (nvarchar), VendorId (nvarchar), VendorCost (decimal), FlightCost (decimal), isExcluded (tinyint), FinalAmount (decimal), CreatedBy (int), CreatedDate (datetime), ModifiedBy (int), ModifiedDate (datetime), VendorPaidCost (decimal), Visa (decimal)
+TABLE: ItineraryAccommodation
+  AccommodationId (int), ItineraryId (nvarchar), Location (nvarchar), PropertyName (nvarchar)
+TABLE: ItineraryInclusion
+  InclusionId (int), ItineraryId (nvarchar), InclusionText (nvarchar)
