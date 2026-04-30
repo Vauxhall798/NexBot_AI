@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+
+# Environment & secrets
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime data
+uploads/*
+downloads/*
+data/*
+!uploads/.gitkeep
+!downloads/.gitkeep
+!data/.gitkeep
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_data.csv
+scratch.py
+test_*.py
+test_*.js

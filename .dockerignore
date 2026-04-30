@@ -1,0 +1,16 @@
+.venv
+.git
+.idea
+.vscode
+node_modules
+__pycache__
+*.pyc
+.env
+uploads/*
+downloads/*
+data/*
+*.csv
+scratch.py
+test_*.py
+test_*.js
+deployment_guide.md

@@ -3,13 +3,15 @@ flask-cors>=4.0.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 werkzeug>=3.0.0
+gunicorn>=22.0.0         # Production WSGI server
+bcrypt>=4.1.0            # Password hashing for plugin registration
 
 # Data handling
 pandas>=2.0.0
-openpyxl>=3.1.0       # Excel support
-xlrd>=2.0.0           # Legacy .xls support
+openpyxl>=3.1.0          # Excel support
+xlrd>=2.0.0              # Legacy .xls support
 
 # Database drivers (install what you need)
-# psycopg2-binary>=2.9.0   # PostgreSQL
-# pymysql>=1.1.0            # MySQL
-pyodbc
+psycopg2-binary>=2.9.0   # PostgreSQL
+# pymysql>=1.1.0          # MySQL
+# pyodbc                  # SQL Server (ODBC)

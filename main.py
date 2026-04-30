@@ -15,6 +15,12 @@ import contextlib
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 
+try:
+    import bcrypt
+    BCRYPT_AVAILABLE = True
+except ImportError:
+    BCRYPT_AVAILABLE = False
+
 # Optional heavy deps — graceful fallback
 try:
     import pandas as pd
@@ -59,6 +65,12 @@ UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
 
+# ── Plugin Registration ──────────────────────────────────────────────────────
+# Master password that users must supply to register as a plugin consumer.
+# Set this in your .env file. Anyone who knows this password can self-register.
+ADMIN_PASSWORD   = os.getenv('NEXBOT_ADMIN_PASSWORD', 'changeme_super_secret')
+LICENSE_DB_PATH  = os.getenv('LICENSE_DB_PATH', 'data/licenses.db')
+
 # Groq generation params
 GROQ_PARAMS_FAST = {'temperature': 0.3, 'max_tokens': 2000,  'top_p': 0.8}
 GROQ_PARAMS_DASH = {'temperature': 0.2, 'max_tokens': 6000, 'top_p': 0.8}
@@ -67,6 +79,7 @@ ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
 os.makedirs(UPLOAD_DIR,   exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(os.path.dirname(LICENSE_DB_PATH) or '.', exist_ok=True)
 
 # ── In-memory stores ──────────────────────────────────────────────────────────
 VALID_API_KEYS = {
@@ -83,6 +96,86 @@ RESPONSE_CACHE: dict = {}
 RESPONSE_CACHE_TTL = 120
 
 
+# ── License Database ─────────────────────────────────────────────────────────
+
+def _init_license_db():
+    """Create the licenses SQLite table if it doesn't exist."""
+    conn = sqlite3.connect(LICENSE_DB_PATH)
+    conn.execute('''CREATE TABLE IF NOT EXISTS licenses (
+        api_key    TEXT PRIMARY KEY,
+        user_name  TEXT NOT NULL,
+        email      TEXT,
+        plan       TEXT NOT NULL DEFAULT 'free',
+        query_limit INTEGER NOT NULL DEFAULT 100,
+        status     TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT NOT NULL,
+        last_used  TEXT
+    )''')
+    conn.commit()
+    conn.close()
+
+_init_license_db()
+
+
+def _db_get_key(api_key: str) -> Optional[dict]:
+    """Look up an API key in the SQLite license database."""
+    conn = sqlite3.connect(LICENSE_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute('SELECT * FROM licenses WHERE api_key = ?', (api_key,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        'user':   row['user_name'],
+        'plan':   row['plan'],
+        'limit':  row['query_limit'],
+        'status': row['status'],
+    }
+
+
+def _db_create_key(user_name: str, email: str = '', plan: str = 'free', limit: int = 100) -> str:
+    """Generate a new API key and insert it into the license database."""
+    api_key = f"nxb_{uuid.uuid4().hex}"
+    conn = sqlite3.connect(LICENSE_DB_PATH)
+    conn.execute(
+        'INSERT INTO licenses (api_key, user_name, email, plan, query_limit, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        (api_key, user_name, email, plan, limit, 'active', datetime.now().isoformat())
+    )
+    conn.commit()
+    conn.close()
+    return api_key
+
+
+def _db_list_keys() -> list:
+    """Return all registered API keys (admin view)."""
+    conn = sqlite3.connect(LICENSE_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute('SELECT api_key, user_name, email, plan, query_limit, status, created_at, last_used FROM licenses ORDER BY created_at DESC').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def _db_revoke_key(api_key: str) -> bool:
+    """Deactivate a license key."""
+    conn = sqlite3.connect(LICENSE_DB_PATH)
+    cur = conn.execute('UPDATE licenses SET status = ? WHERE api_key = ?', ('revoked', api_key))
+    conn.commit()
+    affected = cur.rowcount
+    conn.close()
+    return affected > 0
+
+
+def _db_touch_key(api_key: str):
+    """Update last_used timestamp for an API key."""
+    try:
+        conn = sqlite3.connect(LICENSE_DB_PATH)
+        conn.execute('UPDATE licenses SET last_used = ? WHERE api_key = ?', (datetime.now().isoformat(), api_key))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def allowed_file(filename: str) -> bool:
@@ -95,11 +188,18 @@ def verify_api_key():
         api_key = request.headers.get('X-API-Key', '')
     if not api_key:
         return None, jsonify({'success': False, 'error': 'API key required'}), 401
-    if api_key not in VALID_API_KEYS:
+
+    # Check hardcoded keys first (backward compat), then SQLite DB
+    user = VALID_API_KEYS.get(api_key)
+    if not user:
+        user = _db_get_key(api_key)
+    if not user:
         return None, jsonify({'success': False, 'error': 'Invalid API key'}), 401
-    user = VALID_API_KEYS[api_key]
     if user['status'] != 'active':
         return None, jsonify({'success': False, 'error': 'Inactive subscription'}), 402
+
+    # Track usage timestamp
+    _db_touch_key(api_key)
     return user, None, None
 
 
@@ -281,6 +381,119 @@ def verify_license():
         'subscription': {'plan': user['plan'], 'status': user['status']},
         'limits': {'monthly': user['limit'], 'current': 0, 'remaining': user['limit']},
     })
+
+
+# ── Plugin Registration (password-protected) ─────────────────────────────────
+
+@app.route('/api/v1/register', methods=['POST', 'OPTIONS'])
+def register_plugin():
+    """
+    Password-protected self-registration.
+    Users POST { "password": "...", "name": "...", "email": "..." }
+    and receive a fresh API key they can use in the plugin embed snippet.
+    """
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    body     = request.get_json() or {}
+    password = body.get('password', '')
+    name     = body.get('name', '').strip()
+    email    = body.get('email', '').strip()
+    plan     = body.get('plan', 'free')
+
+    if not password:
+        return jsonify({'success': False, 'error': 'Password is required'}), 400
+    if not name:
+        return jsonify({'success': False, 'error': 'Name is required'}), 400
+
+    # Verify the master password
+    if password != ADMIN_PASSWORD:
+        return jsonify({'success': False, 'error': 'Invalid registration password'}), 403
+
+    # Determine query limit based on plan
+    plan_limits = {'free': 100, 'starter': 1000, 'professional': 5000, 'enterprise': 50000}
+    limit = plan_limits.get(plan, 100)
+
+    api_key = _db_create_key(user_name=name, email=email, plan=plan, limit=limit)
+
+    # Build the embed snippet for the user
+    server_url = request.host_url.rstrip('/')
+    embed_snippet = f"""<!-- NexBot AI Plugin -->
+<script src="{server_url}/plugin/chatbot-plugin.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {{
+    new AITableChatbot({{
+      apiEndpoint: '{server_url}',
+      apiKey: '{api_key}'
+    }});
+  }});
+</script>"""
+
+    return jsonify({
+        'success':       True,
+        'api_key':       api_key,
+        'plan':          plan,
+        'query_limit':   limit,
+        'embed_snippet': embed_snippet,
+        'message':       f'Plugin registered for {name}. Paste the embed_snippet into your HTML to activate.',
+    }), 201
+
+
+@app.route('/api/v1/admin/keys', methods=['GET', 'DELETE', 'OPTIONS'])
+def admin_keys():
+    """
+    Admin endpoint — requires the master password in the X-Admin-Password header.
+    GET  → list all registered keys
+    DELETE { "api_key": "..." } → revoke a key
+    """
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    admin_pw = request.headers.get('X-Admin-Password', '')
+    if admin_pw != ADMIN_PASSWORD:
+        return jsonify({'success': False, 'error': 'Unauthorized — invalid admin password'}), 403
+
+    if request.method == 'GET':
+        keys = _db_list_keys()
+        return jsonify({'success': True, 'total': len(keys), 'keys': keys})
+
+    if request.method == 'DELETE':
+        body    = request.get_json() or {}
+        api_key = body.get('api_key', '')
+        if not api_key:
+            return jsonify({'success': False, 'error': 'api_key is required'}), 400
+        revoked = _db_revoke_key(api_key)
+        if revoked:
+            return jsonify({'success': True, 'message': f'Key {api_key[:12]}... has been revoked'})
+        return jsonify({'success': False, 'error': 'Key not found'}), 404
+
+
+@app.route('/api/v1/plugin/embed', methods=['GET'])
+def plugin_embed_info():
+    """
+    Public info endpoint — explains how to install the plugin.
+    No auth required (it's the landing page for new users).
+    """
+    server_url = request.host_url.rstrip('/')
+    return jsonify({
+        'service': 'NexBot AI Plugin',
+        'steps': [
+            f'1. Register: POST {server_url}/api/v1/register with {{"password": "YOUR_PASSWORD", "name": "Your Name", "email": "you@example.com"}}',
+            '2. Copy the embed_snippet from the response.',
+            '3. Paste it into your website HTML (before </body>).',
+            '4. Done! The NexBot chat widget will appear on your site.'
+        ],
+        'plugin_js_url': f'{server_url}/plugin/chatbot-plugin.js',
+    })
+
+
+# ── Serve the plugin JS file ─────────────────────────────────────────────────
+
+@app.route('/plugin/chatbot-plugin.js', methods=['GET'])
+def serve_plugin_js():
+    """Serve the chatbot plugin JavaScript file for remote embedding."""
+    return send_from_directory(os.path.abspath('.'), 'chatbot-plugin.js',
+                               mimetype='application/javascript')
 
 
 # ── Data source endpoints ─────────────────────────────────────────────────────
@@ -804,55 +1017,99 @@ if __name__ == '__main__':
     status = check_groq_status()
 
     print("\n" + "=" * 60)
-    print("🤖  AI Data Chatbot API — Groq")
+    print("🤖  NexBot AI — Data Chatbot API (Groq)")
     print("=" * 60)
     print(f"📍  Port        : {port}")
     print(f"🧠  Model       : {GROQ_MODEL}")
-    print(f"🔑  API Key     : {'✅ set' if GROQ_API_KEY else '❌ missing — add GROQ_API_KEY to .env'}")
+    print(f"🔑  Groq Key    : {'✅ set' if GROQ_API_KEY else '❌ missing — add GROQ_API_KEY to .env'}")
     print(f"📦  pandas      : {'✅' if PANDAS_AVAILABLE else '❌ (install pandas)'}")
+    print(f"🔐  bcrypt      : {'✅' if BCRYPT_AVAILABLE else '⚠️  optional (password hashing)'}")
     print(f"🐘  psycopg2    : {'✅' if POSTGRES_AVAILABLE else '⚠️  optional'}")
     print(f"🐬  pymysql     : {'✅' if MYSQL_AVAILABLE else '⚠️  optional'}")
     print(f"🗄️  pymssql     : {'✅' if PYMSSQL_AVAILABLE else '⚠️  optional (SQL Server)'}")
     print(f"{'✅  Groq ready — no warm-up needed!' if status['ready'] else '❌  ' + status.get('error','')}")
+    print("─" * 60)
+    print(f"🔌  Plugin Reg  : POST /api/v1/register (password-protected)")
+    print(f"🗃️  License DB  : {LICENSE_DB_PATH}")
+    print(f"📜  Plugin JS   : GET /plugin/chatbot-plugin.js")
+    print(f"👤  Admin Keys  : GET /api/v1/admin/keys (X-Admin-Password header)")
     print("=" * 60 + "\n")
 
     # --- ADDED SQL SERVER LOGIC ---
-    if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
+    # if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
+    #     try:
+    #         # IMPORTANT: Update these credentials and the connection string with your actual SQL Server details!
+    #         server = '103.235.104.222' 
+    #         database = 'TEST' 
+    #         username = 'R45TESTUSER' 
+    #         password = 'softadmin@123' 
+    #         
+    #         # Connect using pymssql (does not require unixodbc system library on Mac)
+    #         conn = pymssql.connect(server=server, user=username, password=password, database=database)
+    #         
+    #         # 1. Fetch all table names in the schema
+    #         schema_name = 'R45TESTUSER'
+    #         cursor = conn.cursor()
+    #         cursor.execute(f"SELECT TABLE_NAME FROM {database}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{schema_name}' AND TABLE_TYPE = 'BASE TABLE'")
+    #         tables = [row[0] for row in cursor.fetchall()]
+    #         
+    #         # 2. Iterate and load each table
+    #         total_loaded = 0
+    #         for table in tables:
+    #             try:
+    #                 # Load the entire table into memory for accurate Pandas Agent queries
+    #                 query = f"SELECT * FROM {database}.{schema_name}.{table}"
+    #                 df_sql = pd.read_sql_query(query, conn)
+    #                 
+    #                 # Load it into the chatbot's memory
+    #                 dataframe_to_source(df_sql, table, 'database')
+    #                 total_loaded += 1
+    #                 print(f"🗄️  Pre-loaded table {table} with {len(df_sql)} rows.")
+    #             except Exception as table_err:
+    #                 print(f"⚠️  Could not load table {table}: {table_err}")
+    #         
+    #         conn.close()
+    #         print(f"✅ Successfully loaded {total_loaded} tables from {schema_name}.")
+    #     except Exception as e:
+    #         print(f"⚠️  Could not connect to SQL Database: {e}")
+    #         print(f"    (Make sure you've installed 'pyodbc' and updated the credentials in main.py)")
+
+    # --- ADDED POSTGRES LOGIC ---
+    if PANDAS_AVAILABLE and POSTGRES_AVAILABLE:
         try:
-            # IMPORTANT: Update these credentials and the connection string with your actual SQL Server details!
-            server = '' 
-            database = '' 
-            username = '' 
-            password = '' 
+            pg_host = 'db.bdmpqdantjkvtjskpicl.supabase.co'
+            pg_port = '5432'
+            pg_dbname = 'postgres'
+            pg_user = 'postgres'
+            pg_password = 'Yasinremo1432@'
+            pg_schema = 'public'
+
+            conn = psycopg2.connect(
+                host=pg_host,
+                port=pg_port,
+                dbname=pg_dbname,
+                user=pg_user,
+                password=pg_password
+            )
             
-            # Connect using pymssql (does not require unixodbc system library on Mac)
-            conn = pymssql.connect(server=server, user=username, password=password, database=database)
-            
-            # 1. Fetch all table names in the schema
-            schema_name = 'R45TESTUSER'
             cursor = conn.cursor()
-            cursor.execute(f"SELECT TABLE_NAME FROM {database}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{schema_name}' AND TABLE_TYPE = 'BASE TABLE'")
+            cursor.execute(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{pg_schema}'")
             tables = [row[0] for row in cursor.fetchall()]
             
-            # 2. Iterate and load each table
             total_loaded = 0
             for table in tables:
                 try:
-                    # Load the entire table into memory for accurate Pandas Agent queries
-                    query = f"SELECT * FROM {database}.{schema_name}.{table}"
-                    df_sql = pd.read_sql_query(query, conn)
-                    
-                    # Load it into the chatbot's memory
-                    dataframe_to_source(df_sql, table, 'database')
+                    query = f"SELECT * FROM {pg_schema}.{table}"
+                    df_pg = pd.read_sql_query(query, conn)
+                    dataframe_to_source(df_pg, table, 'database')
                     total_loaded += 1
-                    print(f"🗄️  Pre-loaded table {table} with {len(df_sql)} rows.")
+                    print(f"🐘  Pre-loaded Postgres table {table} with {len(df_pg)} rows.")
                 except Exception as table_err:
-                    print(f"⚠️  Could not load table {table}: {table_err}")
+                    print(f"⚠️  Could not load Postgres table {table}: {table_err}")
             
             conn.close()
-            print(f"✅ Successfully loaded {total_loaded} tables from {schema_name}.")
+            print(f"✅ Successfully loaded {total_loaded} Postgres tables from {pg_schema}.")
         except Exception as e:
-            print(f"⚠️  Could not connect to SQL Database: {e}")
-            print(f"    (Make sure you've installed 'pyodbc' and updated the credentials in main.py)")
+            print(f"⚠️  Could not connect to Postgres Database: {e}")
 
     app.run(host='0.0.0.0', port=port, debug=True)
