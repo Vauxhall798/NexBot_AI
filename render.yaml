@@ -8,22 +8,19 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 main:app
+    autoDeploy: false
     envVars:
       - key: GROQ_API_KEY
-        sync: false        # User must set manually in Render dashboard
+        sync: false
       - key: NEXBOT_ADMIN_PASSWORD
         sync: false
-      - key: LICENSE_DB_PATH
-        value: data/licenses.db
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
+      - key: LICENSE_DB_PATH
+        value: data/licenses.db
       - key: UPLOAD_DIR
         value: uploads
       - key: DOWNLOAD_DIR
         value: downloads
       - key: DATA_CACHE_TTL
-        value: 300
-    disk:
-      name: nexbot-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+        value: "300"
