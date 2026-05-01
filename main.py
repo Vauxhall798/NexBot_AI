@@ -380,11 +380,20 @@ def extract_python_code(text: str) -> str:
     return text.strip()
 
 def execute_pandas_code(dfs: dict, code: str) -> str:
-    local_vars = {**dfs, 'pd': pd}
+    """Execute AI-generated pandas code against loaded DataFrames.
+    
+    We merge all DataFrames + pandas into a single namespace dict passed as
+    both globals and locals to exec().  This avoids Python's known scoping
+    quirk where exec(code, {}, locals_dict) fails to resolve bare variable
+    names like `ItineraryMaster`.
+    """
+    import numpy as np
+    namespace = {'pd': pd, 'np': np, '__builtins__': __builtins__}
+    namespace.update(dfs)          # e.g. ItineraryMaster=df, VendorMaster=df
     output = io.StringIO()
     try:
         with contextlib.redirect_stdout(output):
-            exec(code, {}, local_vars)
+            exec(code, namespace)
         result = output.getvalue()
         if not result.strip():
             return "Code executed successfully but produced no output."
