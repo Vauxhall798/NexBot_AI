@@ -1035,81 +1035,87 @@ if __name__ == '__main__':
     print(f"👤  Admin Keys  : GET /api/v1/admin/keys (X-Admin-Password header)")
     print("=" * 60 + "\n")
 
-    # --- ADDED SQL SERVER LOGIC ---
-    # if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
-    #     try:
-    #         # IMPORTANT: Update these credentials and the connection string with your actual SQL Server details!
-    #         server = '103.235.104.222' 
-    #         database = 'TEST' 
-    #         username = 'R45TESTUSER' 
-    #         password = 'softadmin@123' 
-    #         
-    #         # Connect using pymssql (does not require unixodbc system library on Mac)
-    #         conn = pymssql.connect(server=server, user=username, password=password, database=database)
-    #         
-    #         # 1. Fetch all table names in the schema
-    #         schema_name = 'R45TESTUSER'
-    #         cursor = conn.cursor()
-    #         cursor.execute(f"SELECT TABLE_NAME FROM {database}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{schema_name}' AND TABLE_TYPE = 'BASE TABLE'")
-    #         tables = [row[0] for row in cursor.fetchall()]
-    #         
-    #         # 2. Iterate and load each table
-    #         total_loaded = 0
-    #         for table in tables:
-    #             try:
-    #                 # Load the entire table into memory for accurate Pandas Agent queries
-    #                 query = f"SELECT * FROM {database}.{schema_name}.{table}"
-    #                 df_sql = pd.read_sql_query(query, conn)
-    #                 
-    #                 # Load it into the chatbot's memory
-    #                 dataframe_to_source(df_sql, table, 'database')
-    #                 total_loaded += 1
-    #                 print(f"🗄️  Pre-loaded table {table} with {len(df_sql)} rows.")
-    #             except Exception as table_err:
-    #                 print(f"⚠️  Could not load table {table}: {table_err}")
-    #         
-    #         conn.close()
-    #         print(f"✅ Successfully loaded {total_loaded} tables from {schema_name}.")
-    #     except Exception as e:
-    #         print(f"⚠️  Could not connect to SQL Database: {e}")
-    #         print(f"    (Make sure you've installed 'pyodbc' and updated the credentials in main.py)")
+    # --- SQL SERVER LOGIC ---
+    if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
+        mssql_server   = os.getenv('MSSQL_SERVER', '')
+        mssql_database = os.getenv('MSSQL_DATABASE', '')
+        mssql_user     = os.getenv('MSSQL_USER', '')
+        mssql_password = os.getenv('MSSQL_PASSWORD', '')
+        mssql_schema   = os.getenv('MSSQL_SCHEMA', mssql_user)
 
-    # --- ADDED POSTGRES LOGIC ---
+        if mssql_server and mssql_user:
+            try:
+                conn = pymssql.connect(
+                    server=mssql_server,
+                    user=mssql_user,
+                    password=mssql_password,
+                    database=mssql_database
+                )
+
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"SELECT TABLE_NAME FROM {mssql_database}.INFORMATION_SCHEMA.TABLES "
+                    f"WHERE TABLE_SCHEMA = '{mssql_schema}' AND TABLE_TYPE = 'BASE TABLE'"
+                )
+                tables = [row[0] for row in cursor.fetchall()]
+
+                total_loaded = 0
+                for table in tables:
+                    try:
+                        query = f"SELECT * FROM {mssql_database}.{mssql_schema}.{table}"
+                        df_sql = pd.read_sql_query(query, conn)
+                        dataframe_to_source(df_sql, table, 'database')
+                        total_loaded += 1
+                        print(f"🗄️  Pre-loaded SQL Server table {table} with {len(df_sql)} rows.")
+                    except Exception as table_err:
+                        print(f"⚠️  Could not load table {table}: {table_err}")
+
+                conn.close()
+                print(f"✅ Successfully loaded {total_loaded} tables from SQL Server [{mssql_schema}].")
+            except Exception as e:
+                print(f"⚠️  Could not connect to SQL Server: {e}")
+        else:
+            print("ℹ️  SQL Server: skipped (MSSQL_SERVER / MSSQL_USER not set in .env)")
+
+    # --- POSTGRES LOGIC ---
     if PANDAS_AVAILABLE and POSTGRES_AVAILABLE:
-        try:
-            pg_host = 'db.bdmpqdantjkvtjskpicl.supabase.co'
-            pg_port = '5432'
-            pg_dbname = 'postgres'
-            pg_user = 'postgres'
-            pg_password = 'Yasinremo1432@'
-            pg_schema = 'public'
+        pg_host     = os.getenv('PG_HOST', '')
+        pg_port     = os.getenv('PG_PORT', '5432')
+        pg_dbname   = os.getenv('PG_DBNAME', 'postgres')
+        pg_user     = os.getenv('PG_USER', 'postgres')
+        pg_password = os.getenv('PG_PASSWORD', '')
+        pg_schema   = os.getenv('PG_SCHEMA', 'public')
 
-            conn = psycopg2.connect(
-                host=pg_host,
-                port=pg_port,
-                dbname=pg_dbname,
-                user=pg_user,
-                password=pg_password
-            )
-            
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{pg_schema}'")
-            tables = [row[0] for row in cursor.fetchall()]
-            
-            total_loaded = 0
-            for table in tables:
-                try:
-                    query = f"SELECT * FROM {pg_schema}.{table}"
-                    df_pg = pd.read_sql_query(query, conn)
-                    dataframe_to_source(df_pg, table, 'database')
-                    total_loaded += 1
-                    print(f"🐘  Pre-loaded Postgres table {table} with {len(df_pg)} rows.")
-                except Exception as table_err:
-                    print(f"⚠️  Could not load Postgres table {table}: {table_err}")
-            
-            conn.close()
-            print(f"✅ Successfully loaded {total_loaded} Postgres tables from {pg_schema}.")
-        except Exception as e:
-            print(f"⚠️  Could not connect to Postgres Database: {e}")
+        if pg_host and pg_password:
+            try:
+                conn = psycopg2.connect(
+                    host=pg_host,
+                    port=pg_port,
+                    dbname=pg_dbname,
+                    user=pg_user,
+                    password=pg_password
+                )
+
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{pg_schema}'")
+                tables = [row[0] for row in cursor.fetchall()]
+
+                total_loaded = 0
+                for table in tables:
+                    try:
+                        query = f"SELECT * FROM {pg_schema}.{table}"
+                        df_pg = pd.read_sql_query(query, conn)
+                        dataframe_to_source(df_pg, table, 'database')
+                        total_loaded += 1
+                        print(f"🐘  Pre-loaded Postgres table {table} with {len(df_pg)} rows.")
+                    except Exception as table_err:
+                        print(f"⚠️  Could not load Postgres table {table}: {table_err}")
+
+                conn.close()
+                print(f"✅ Successfully loaded {total_loaded} Postgres tables from {pg_schema}.")
+            except Exception as e:
+                print(f"⚠️  Could not connect to Postgres Database: {e}")
+        else:
+            print("ℹ️  Postgres: skipped (PG_HOST / PG_PASSWORD not set in .env)")
 
     app.run(host='0.0.0.0', port=port, debug=True)
