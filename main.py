@@ -117,6 +117,43 @@ def _init_license_db():
 _init_license_db()
 
 
+def _seed_keys_from_env():
+    """
+    Auto-seed persistent API keys from the NEXBOT_SEED_KEYS env variable.
+    This ensures important keys survive Render redeploys (ephemeral storage).
+    Format: JSON array of objects, e.g.
+    [{"key":"nxb_abc123","name":"Vivek","email":"v@test.com","plan":"starter","limit":1000}]
+    """
+    raw = os.getenv('NEXBOT_SEED_KEYS', '').strip()
+    if not raw:
+        return
+    try:
+        seeds = json.loads(raw)
+        conn = sqlite3.connect(LICENSE_DB_PATH)
+        seeded = 0
+        for s in seeds:
+            api_key = s.get('key', '')
+            if not api_key:
+                continue
+            # Only insert if key doesn't already exist
+            exists = conn.execute('SELECT 1 FROM licenses WHERE api_key = ?', (api_key,)).fetchone()
+            if not exists:
+                conn.execute(
+                    'INSERT INTO licenses (api_key, user_name, email, plan, query_limit, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    (api_key, s.get('name', 'seeded_user'), s.get('email', ''),
+                     s.get('plan', 'free'), s.get('limit', 100), 'active', datetime.now().isoformat())
+                )
+                seeded += 1
+        conn.commit()
+        conn.close()
+        if seeded:
+            print(f"🔑  Auto-seeded {seeded} API key(s) from NEXBOT_SEED_KEYS.")
+    except Exception as e:
+        print(f"⚠️  Could not seed keys from NEXBOT_SEED_KEYS: {e}")
+
+_seed_keys_from_env()
+
+
 def _db_get_key(api_key: str) -> Optional[dict]:
     """Look up an API key in the SQLite license database."""
     conn = sqlite3.connect(LICENSE_DB_PATH)
