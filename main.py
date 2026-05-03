@@ -714,7 +714,10 @@ Database Schema Relationships:
         schema_info = []
         for s in sources_to_use:
             schema_info.append(f"Table name: {s['name']}\nColumns: {list(s['schema'].keys())}")
-        schema_text = "\n\n".join(schema_info)
+        if not schema_info:
+            schema_text = "No data sources are currently loaded."
+        else:
+            schema_text = "\n\n".join(schema_info)
 
         # 2. Ask Groq to write Python code or converse
         code_prompt = f"""You are an elite Data Analyst AI. 
@@ -727,9 +730,10 @@ User Input: {message}
 
 Instructions:
 1. If the user is asking about the data, write a Python script using pandas to find the answer. Output ONLY a ```python ... ``` code block. Use `print()` to output the exact result. The DataFrames are loaded as variables matching their exact Table names (e.g. `VendorMaster`).
-2. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
-3. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
-4. If the user is just saying hello, making a conversational comment, or asking a question unrelated to the data, DO NOT write python code. Just respond naturally and conversationally as a helpful AI assistant."""
+2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.', DO NOT write a Python script. Instead, just inform the user that there is no data loaded yet and they need to connect a database or upload a file.
+3. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
+4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
+5. If the user is just saying hello, making a conversational comment, or asking a question unrelated to the data, DO NOT write python code. Just respond naturally and conversationally as a helpful AI assistant."""
 
         code_resp = groq_prompt(code_prompt, params={'temperature': 0.1, 'max_tokens': 1000})
         is_code = '```python' in code_resp.lower()
@@ -842,7 +846,10 @@ Database Schema Relationships:
             schema_info = []
             for s in sources_to_use:
                 schema_info.append(f"Table name: {s['name']}\\nColumns: {list(s['schema'].keys())}")
-            schema_text = "\\n\\n".join(schema_info)
+            if not schema_info:
+                schema_text = "No data sources are currently loaded."
+            else:
+                schema_text = "\\n\\n".join(schema_info)
 
             # 2. Ask Groq to write Python code or converse
             code_prompt = f"""You are an elite Data Analyst AI. 
@@ -855,9 +862,10 @@ User Input: {message}
 
 Instructions:
 1. If the user is asking about the data, write a Python script using pandas to find the answer. Output ONLY a ```python ... ``` code block. Use `print()` to output the exact result. The DataFrames are loaded as variables matching their exact Table names (e.g. `VendorMaster`).
-2. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
-3. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
-4. If the user is just saying hello, making a conversational comment, or asking a question unrelated to the data, DO NOT write python code. Just respond naturally and conversationally as a helpful AI assistant."""
+2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.', DO NOT write a Python script. Instead, just inform the user that there is no data loaded yet and they need to connect a database or upload a file.
+3. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
+4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
+5. If the user is just saying hello, making a conversational comment, or asking a question unrelated to the data, DO NOT write python code. Just respond naturally and conversationally as a helpful AI assistant."""
 
             code_resp = groq_prompt(code_prompt, params={'temperature': 0.1, 'max_tokens': 1000})
             is_code = '```python' in code_resp.lower()
@@ -1081,6 +1089,7 @@ if __name__ == '__main__':
     print(f"👤  Admin Keys  : GET /api/v1/admin/keys (X-Admin-Password header)")
     print("=" * 60 + "\n")
 
+def preload_databases():
     # --- SQL SERVER LOGIC ---
     if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
         mssql_server   = os.getenv('MSSQL_SERVER', '')
@@ -1163,5 +1172,8 @@ if __name__ == '__main__':
                 print(f"⚠️  Could not connect to Postgres Database: {e}")
         else:
             print("ℹ️  Postgres: skipped (PG_HOST / PG_PASSWORD not set in .env)")
+
+# Load databases globally so gunicorn workers execute this
+preload_databases()
 
     app.run(host='0.0.0.0', port=port, debug=True)
