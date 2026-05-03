@@ -29,13 +29,8 @@ class AITableChatbot {
     this.container.innerHTML = `
       <div class="chatbot-launcher" id="chatbot-launcher-drag">
         <div class="launcher-content">
-          <div class="launcher-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="white"/>
-              <path d="M8.5 11C9.32843 11 10 10.3284 10 9.5C10 8.67157 9.32843 8 8.5 8C7.67157 8 7 8.67157 7 9.5C7 10.3284 7.67157 11 8.5 11Z" fill="white"/>
-              <path d="M15.5 11C16.3284 11 17 10.3284 17 9.5C17 8.67157 16.3284 8 15.5 8C14.6716 8 14 8.67157 14 9.5C14 10.3284 14.6716 11 15.5 11Z" fill="white"/>
-              <path d="M12 17.5C14.33 17.5 16.32 16.04 17.05 14H6.95C7.68 16.04 9.67 17.5 12 17.5Z" fill="white"/>
-            </svg>
+          <div class="launcher-icon" style="font-size: 28px; font-weight: 800; color: white;">
+            N
           </div>
           <div class="launcher-badge">1</div>
           <div class="launcher-pulse"></div>
@@ -45,14 +40,8 @@ class AITableChatbot {
       <div class="chatbot-window">
         <div class="chatbot-header" id="chatbot-drag-handle">
           <div class="chatbot-header-content">
-            <div class="chatbot-avatar">
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="16" fill="white" opacity="0.2"/>
-                <path d="M16 8C11.58 8 8 11.58 8 16C8 20.42 11.58 24 16 24C20.42 24 24 20.42 24 16C24 11.58 20.42 8 16 8ZM16 22C12.69 22 10 19.31 10 16C10 12.69 12.69 10 16 10C19.31 10 22 12.69 22 16C22 19.31 19.31 22 16 22Z" fill="white"/>
-                <circle cx="13" cy="15" r="1.5" fill="white"/>
-                <circle cx="19" cy="15" r="1.5" fill="white"/>
-                <path d="M16 20C17.66 20 19.08 19.02 19.62 17.5H12.38C12.92 19.02 14.34 20 16 20Z" fill="white"/>
-              </svg>
+            <div class="chatbot-avatar" style="font-size: 22px; font-weight: 800; color: white;">
+              N
             </div>
             <div class="chatbot-title-section">
               <h3 class="chatbot-title">NexBot</h3>
