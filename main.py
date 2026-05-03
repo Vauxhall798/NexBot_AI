@@ -410,6 +410,7 @@ def health():
         'model': GROQ_MODEL,
         'data_sources': len(DATA_SOURCES),
         'sql_status': SQL_ERROR,
+        'pg_status': PG_ERROR,
         'service': 'AI Data Chatbot API (Groq)',
         'timestamp': datetime.now().isoformat()
     })
@@ -723,10 +724,10 @@ User Input: {message}
 
 Instructions:
 1. If the user is asking about the data, write a Python script using pandas to find the answer. Output ONLY a ```python ... ``` code block. Use `print()` to output the exact result. The DataFrames are loaded as variables matching their exact Table names (e.g. `VendorMaster`).
-2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.', DO NOT write a Python script. Instead, just inform the user that there is no data loaded yet and they need to connect a database or upload a file.
+2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.' AND the user is asking to analyze data, DO NOT write a Python script. Instead, inform them they need to connect a database or upload a file.
 3. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
 4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
-5. If the user is just saying hello, making a conversational comment, or asking a question unrelated to the data, DO NOT write python code. Just respond naturally and conversationally as a helpful AI assistant."""
+5. IMPORTANT: If the user says hello, makes a conversational comment, or asks a general question unrelated to the data, ALWAYS respond naturally, greet them friendly, and answer their general question directly, even if no data is loaded! DO NOT write python code for this."""
 
         code_resp = groq_prompt(code_prompt, params={'temperature': 0.1, 'max_tokens': 1000})
         is_code = '```python' in code_resp.lower()
@@ -842,10 +843,10 @@ User Input: {message}
 
 Instructions:
 1. If the user is asking about the data, write a Python script using pandas to find the answer. Output ONLY a ```python ... ``` code block. Use `print()` to output the exact result. The DataFrames are loaded as variables matching their exact Table names (e.g. `VendorMaster`).
-2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.', DO NOT write a Python script. Instead, just inform the user that there is no data loaded yet and they need to connect a database or upload a file.
+2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.' AND the user is asking to analyze data, DO NOT write a Python script. Instead, inform them they need to connect a database or upload a file.
 3. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
 4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
-5. If the user is just saying hello, making a conversational comment, or asking a question unrelated to the data, DO NOT write python code. Just respond naturally and conversationally as a helpful AI assistant."""
+5. IMPORTANT: If the user says hello, makes a conversational comment, or asks a general question unrelated to the data, ALWAYS respond naturally, greet them friendly, and answer their general question directly, even if no data is loaded! DO NOT write python code for this."""
 
             code_resp = groq_prompt(code_prompt, params={'temperature': 0.1, 'max_tokens': 1000})
             is_code = '```python' in code_resp.lower()
@@ -1046,9 +1047,10 @@ def internal_error(e):
 
 
 SQL_ERROR = None
+PG_ERROR = None
 
 def preload_databases():
-    global SQL_ERROR
+    global SQL_ERROR, PG_ERROR
     # --- SQL SERVER LOGIC ---
     if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
         mssql_server   = os.getenv('MSSQL_SERVER', '')
@@ -1109,7 +1111,8 @@ def preload_databases():
                     port=pg_port,
                     dbname=pg_dbname,
                     user=pg_user,
-                    password=pg_password
+                    password=pg_password,
+                    sslmode='require'
                 )
 
                 cursor = conn.cursor()
@@ -1130,8 +1133,10 @@ def preload_databases():
                 conn.close()
                 print(f"✅ Successfully loaded {total_loaded} Postgres tables from {pg_schema}.")
             except Exception as e:
+                PG_ERROR = str(e)
                 print(f"⚠️  Could not connect to Postgres Database: {e}")
         else:
+            PG_ERROR = "Environment variables (PG_HOST / PG_PASSWORD) not found"
             print("ℹ️  Postgres: skipped (PG_HOST / PG_PASSWORD not set in .env)")
 
 # Load databases globally so gunicorn workers execute this
