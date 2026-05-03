@@ -404,14 +404,14 @@ def execute_pandas_code(dfs: dict, code: str) -> str:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/health', methods=['GET'])
-def health_check():
-    status = check_groq_status()
+def health():
     return jsonify({
-        'status':       'healthy' if status['ready'] else 'degraded',
-        'service':      'AI Data Chatbot API (Groq)',
-        'timestamp':    datetime.now().isoformat(),
-        'groq':         {'model': GROQ_MODEL, **status},
+        'status': 'healthy',
+        'model': GROQ_MODEL,
         'data_sources': len(DATA_SOURCES),
+        'sql_status': SQL_ERROR,
+        'service': 'AI Data Chatbot API (Groq)',
+        'timestamp': datetime.now().isoformat()
     })
 
 
@@ -1061,7 +1061,10 @@ def internal_error(e):
     return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
+SQL_ERROR = None
+
 def preload_databases():
+    global SQL_ERROR
     # --- SQL SERVER LOGIC ---
     if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
         mssql_server   = os.getenv('MSSQL_SERVER', '')
@@ -1100,8 +1103,10 @@ def preload_databases():
                 conn.close()
                 print(f"✅ Successfully loaded {total_loaded} tables from SQL Server [{mssql_schema}].")
             except Exception as e:
+                SQL_ERROR = str(e)
                 print(f"⚠️  Could not connect to SQL Server: {e}")
         else:
+            SQL_ERROR = "Environment variables (MSSQL_SERVER) not found"
             print("ℹ️  SQL Server: skipped (MSSQL_SERVER / MSSQL_USER not set in .env)")
 
     # --- POSTGRES LOGIC ---
