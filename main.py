@@ -1065,30 +1065,6 @@ def internal_error(e):
     return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
-# ── Startup ───────────────────────────────────────────────────────────────────
-if __name__ == '__main__':
-    port   = int(os.getenv('PORT', 5000))
-    status = check_groq_status()
-
-    print("\n" + "=" * 60)
-    print("🤖  NexBot AI — Data Chatbot API (Groq)")
-    print("=" * 60)
-    print(f"📍  Port        : {port}")
-    print(f"🧠  Model       : {GROQ_MODEL}")
-    print(f"🔑  Groq Key    : {'✅ set' if GROQ_API_KEY else '❌ missing — add GROQ_API_KEY to .env'}")
-    print(f"📦  pandas      : {'✅' if PANDAS_AVAILABLE else '❌ (install pandas)'}")
-    print(f"🔐  bcrypt      : {'✅' if BCRYPT_AVAILABLE else '⚠️  optional (password hashing)'}")
-    print(f"🐘  psycopg2    : {'✅' if POSTGRES_AVAILABLE else '⚠️  optional'}")
-    print(f"🐬  pymysql     : {'✅' if MYSQL_AVAILABLE else '⚠️  optional'}")
-    print(f"🗄️  pymssql     : {'✅' if PYMSSQL_AVAILABLE else '⚠️  optional (SQL Server)'}")
-    print(f"{'✅  Groq ready — no warm-up needed!' if status['ready'] else '❌  ' + status.get('error','')}")
-    print("─" * 60)
-    print(f"🔌  Plugin Reg  : POST /api/v1/register (password-protected)")
-    print(f"🗃️  License DB  : {LICENSE_DB_PATH}")
-    print(f"📜  Plugin JS   : GET /plugin/chatbot-plugin.js")
-    print(f"👤  Admin Keys  : GET /api/v1/admin/keys (X-Admin-Password header)")
-    print("=" * 60 + "\n")
-
 def preload_databases():
     # --- SQL SERVER LOGIC ---
     if PANDAS_AVAILABLE and PYMSSQL_AVAILABLE:
@@ -1175,5 +1151,29 @@ def preload_databases():
 
 # Load databases globally so gunicorn workers execute this
 preload_databases()
+
+# ── Startup ───────────────────────────────────────────────────────────────────
+if __name__ == '__main__':
+    port   = int(os.getenv('PORT', 5000))
+    status = check_groq_status()
+
+    print("\n" + "=" * 60)
+    print("🤖  NexBot AI — Data Chatbot API (Groq)")
+    print("=" * 60)
+    print(f"📍  Port        : {port}")
+    print(f"🧠  Model       : {GROQ_MODEL}")
+    print(f"🔑  Groq Key    : {'✅ set' if GROQ_API_KEY else '❌ missing — add GROQ_API_KEY to .env'}")
+    print(f"📦  pandas      : {'✅' if PANDAS_AVAILABLE else '❌ (install pandas)'}")
+    print(f"🔐  bcrypt      : {'✅' if BCRYPT_AVAILABLE else '⚠️  optional (password hashing)'}")
+    print(f"🐘  psycopg2    : {'✅' if POSTGRES_AVAILABLE else '⚠️  optional'}")
+    print(f"🐬  pymysql     : {'✅' if MYSQL_AVAILABLE else '⚠️  optional'}")
+    print(f"🗄️  pymssql     : {'✅' if PYMSSQL_AVAILABLE else '⚠️  optional (SQL Server)'}")
+    print(f"{'✅  Groq ready — no warm-up needed!' if status['ready'] else '❌  ' + status.get('error','')}")
+    print("─" * 60)
+    print(f"🔌  Plugin Reg  : POST /api/v1/register (password-protected)")
+    print(f"🗃️  License DB  : {LICENSE_DB_PATH}")
+    print(f"📜  Plugin JS   : GET /plugin/chatbot-plugin.js")
+    print(f"👤  Admin Keys  : GET /api/v1/admin/keys (X-Admin-Password header)")
+    print("=" * 60 + "\n")
 
     app.run(host='0.0.0.0', port=port, debug=True)
