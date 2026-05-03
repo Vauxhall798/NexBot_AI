@@ -831,10 +831,6 @@ Database Schema Relationships:
 
     def generate():
         try:
-            # Send initial thinking status
-            status_msg = {'token': '🤔 Analyzing request...\n\n', 'done': False}
-            yield f"data: {json.dumps(status_msg)}\n\n"
-            
             # 1. Prepare Pandas environment
             if source:
                 sources_to_use = [source]

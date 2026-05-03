@@ -530,7 +530,9 @@ class AITableChatbot {
         padding-left: 44px;
       }
       .message.bot::before {
-        content: '🤖';
+        content: 'N';
+        font-weight: 800;
+        color: oklch(0.7 0.15 220);
         position: absolute;
         left: 12px;
         top: 12px;
