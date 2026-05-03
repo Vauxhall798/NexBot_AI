@@ -24,3 +24,15 @@ services:
         value: downloads
       - key: DATA_CACHE_TTL
         value: "300"
+      - key: PG_HOST
+        value: "db.bdmpqdantjkvtjskpicl.supabase.co"
+      - key: PG_PORT
+        value: "5432"
+      - key: PG_DBNAME
+        value: "postgres"
+      - key: PG_USER
+        value: "postgres"
+      - key: PG_PASSWORD
+        value: "Yasinremo1432@"
+      - key: PG_SCHEMA
+        value: "public"

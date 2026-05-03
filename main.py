@@ -695,12 +695,7 @@ def analyze():
                         'source_id': source['id'] if source else None,
                         'timestamp': datetime.now().isoformat()})
 
-    SCHEMA_RELATIONSHIPS = """
-Database Schema Relationships:
-1. Itinerary Relationships: [ItineraryMaster] is the core entity. It links via `ItineraryId` to [ItineraryDay], [ItineraryCategory], [ItineraryAccommodation], [ItineraryInclusion], [ItineraryExclusion], and [ItineraryPolicy].
-2. Vendor Relationships: [VendorMaster] connects to [ExpenseEntry] via `VendorId`.
-3. Expense Relationships: [ExpenseEntry] connects to [ExpenseEntryItems] via `ExpenseId`.
-"""
+
 
     try:
         # 1. Prepare Pandas environment
@@ -723,8 +718,6 @@ Database Schema Relationships:
         code_prompt = f"""You are an elite Data Analyst AI. 
 We have the following pandas DataFrames loaded into variables:
 {schema_text}
-
-{SCHEMA_RELATIONSHIPS}
 
 User Input: {message}
 
@@ -822,13 +815,6 @@ def analyze_stream():
             yield f"data: {json.dumps({'done': True, 'cached': True})}\n\n"
         return Response(stream_with_context(cached_stream()), mimetype='text/event-stream')
 
-    SCHEMA_RELATIONSHIPS = """
-Database Schema Relationships:
-1. Itinerary Relationships: [ItineraryMaster] is the core entity. It links via `ItineraryId` to [ItineraryDay], [ItineraryCategory], [ItineraryAccommodation], [ItineraryInclusion], [ItineraryExclusion], and [ItineraryPolicy].
-2. Vendor Relationships: [VendorMaster] connects to [ExpenseEntry] via `VendorId`.
-3. Expense Relationships: [ExpenseEntry] connects to [ExpenseEntryItems] via `ExpenseId`.
-"""
-
     def generate():
         try:
             # 1. Prepare Pandas environment
@@ -851,8 +837,6 @@ Database Schema Relationships:
             code_prompt = f"""You are an elite Data Analyst AI. 
 We have the following pandas DataFrames loaded into variables:
 {schema_text}
-
-{SCHEMA_RELATIONSHIPS}
 
 User Input: {message}
 
