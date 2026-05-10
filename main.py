@@ -534,7 +534,29 @@ def plugin_embed_info():
     })
 
 
-# ── Serve the plugin JS file ─────────────────────────────────────────────────
+# ── Serve the frontend (index.html + static assets) ─────────────────────────
+
+@app.route('/', methods=['GET'])
+def serve_index():
+    """Serve the main frontend page."""
+    return send_from_directory(os.path.abspath('.'), 'index.html')
+
+
+@app.route('/style.css', methods=['GET'])
+def serve_css():
+    """Serve the stylesheet."""
+    return send_from_directory(os.path.abspath('.'), 'style.css',
+                               mimetype='text/css')
+
+
+@app.route('/chatbot-plugin.js', methods=['GET'])
+def serve_plugin_js_root():
+    """Serve the chatbot plugin JS from the root path (used by index.html)."""
+    return send_from_directory(os.path.abspath('.'), 'chatbot-plugin.js',
+                               mimetype='application/javascript')
+
+
+# ── Serve the plugin JS file (legacy plugin embed path) ──────────────────────
 
 @app.route('/plugin/chatbot-plugin.js', methods=['GET'])
 def serve_plugin_js():

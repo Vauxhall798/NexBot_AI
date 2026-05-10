@@ -14,5 +14,5 @@ xlrd>=2.0.0              # Legacy .xls support
 
 # Database drivers
 psycopg2-binary>=2.9.0   # PostgreSQL
-pymssql>=2.2.0            # SQL Server
+# pymssql — excluded: requires FreeTDS C headers not available on Render Linux
 # pymysql>=1.1.0          # MySQL
