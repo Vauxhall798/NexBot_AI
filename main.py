@@ -1013,73 +1013,80 @@ Blueprint:"""
             return jsonify({'success': False, 'error': warning_msg})
 
         # STEP 2: Generate the HTML using the plan
-        generator_prompt = f"""You are a senior frontend developer specialising in data visualisation. Generate a COMPLETE, self-contained HTML page that implements the following dashboard blueprint.
+        # NOTE: Plain string concatenation used (not f-string) to avoid Python
+        # parsing conflicts with JS syntax: [...arr], =>, ??, && inside f-strings.
+        _SORT_HELPER = (
+            "   const MONTH_ORDER = {\n"
+            "     jan:0, january:0, feb:1, february:1, mar:2, march:2,\n"
+            "     apr:3, april:3, may:4, jun:5, june:5, jul:6, july:6,\n"
+            "     aug:7, august:7, sep:8, sept:8, september:8,\n"
+            "     oct:9, october:9, nov:10, november:10, dec:11, december:11\n"
+            "   };\n"
+            "   function sortByTime(arr, key) {\n"
+            "     return arr.slice().sort(function(a, b) {\n"
+            "       var av = String(a[key] != null ? a[key] : '').trim();\n"
+            "       var bv = String(b[key] != null ? b[key] : '').trim();\n"
+            "       var am = MONTH_ORDER[av.toLowerCase().slice(0,3)];\n"
+            "       var bm = MONTH_ORDER[bv.toLowerCase().slice(0,3)];\n"
+            "       if (am !== undefined && bm !== undefined) return am - bm;\n"
+            "       var ad = new Date(av), bd = new Date(bv);\n"
+            "       if (!isNaN(ad) && !isNaN(bd)) return ad - bd;\n"
+            "       return parseFloat(av) - parseFloat(bv);\n"
+            "     });\n"
+            "   }\n"
+            "   // Usage: var sorted = sortByTime(window.dashboardData, 'month_col');\n"
+            "   // labels = sorted.map(function(r){ return r.month_col; });\n"
+            "   // values = sorted.map(function(r){ return parseFloat(r.val_col)||0; });\n"
+        )
 
-Blueprint:
-{plan}
-
-Data Schema Sample (for column reference only — do NOT hardcode any values):
-{data_text}
-
-JAVASCRIPT & DATA RULES:
-1. The full dataset is in `window.dashboardData` (array of JSON objects) — use it for ALL values.
-2. Dynamically compute KPI values and chart arrays by iterating `window.dashboardData`.
-3. Parse strings to numbers where needed: `parseFloat(v) || 0`.
-4. CRITICAL — SORT TIME-SERIES CHRONOLOGICALLY. You MUST embed this helper and use it for EVERY chart that has a time/month/date axis — do NOT rely on the data's original order:
-
-   const MONTH_ORDER = {
-     jan:0, january:0, feb:1, february:1, mar:2, march:2,
-     apr:3, april:3, may:4, jun:5, june:5, jul:6, july:6,
-     aug:7, august:7, sep:8, sept:8, september:8,
-     oct:9, october:9, nov:10, november:10, dec:11, december:11
-   };
-   function sortByTime(arr, key) {
-     return [...arr].sort((a, b) => {
-       const av = String(a[key] ?? '').trim();
-       const bv = String(b[key] ?? '').trim();
-       // Try month name first
-       const am = MONTH_ORDER[av.toLowerCase().slice(0,3)];
-       const bm = MONTH_ORDER[bv.toLowerCase().slice(0,3)];
-       if (am !== undefined && bm !== undefined) return am - bm;
-       // Fall back to date parse (handles "2024-01", "Jan 2024", "Q1 2024", etc.)
-       const ad = new Date(av), bd = new Date(bv);
-       if (!isNaN(ad) && !isNaN(bd)) return ad - bd;
-       // Numeric fallback
-       return parseFloat(av) - parseFloat(bv);
-     });
-   }
-   // Usage for any time-series chart: const sorted = sortByTime(window.dashboardData, 'month_column');
-   // Then: labels = sorted.map(r => r.month_column); values = sorted.map(r => parseFloat(r.value_column)||0);
-
-CHART LIBRARY RULES:
-- Always load Chart.js 4 first: https://cdn.jsdelivr.net/npm/chart.js
-- For TREEMAP: also load https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2
-- For BOXPLOT: also load https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot
-- For SANKEY: draw on Canvas using custom JavaScript (no plugin needed).
-- For HEATMAP: use CSS grid with inline background-color scaling by value intensity.
-- For FUNNEL: CSS trapezoid shapes with proportional widths and gradient fills.
-- For CANDLESTICK: draw OHLC rectangles on Canvas manually.
-- For DOTPLOT: Chart.js scatter with pointStyle circle and large radius.
-- Bar = Chart.js bar with indexAxis:y. Column = bar vertical. Area = line with fill:true.
-- Stacked bar/column: stacked:true. Histogram: bin data manually then render as bar.
-- Radar, Pie, Doughnut, Scatter, Bubble, Line — native Chart.js types.
-
-HTML & CSS RULES:
-1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.
-2. ONLY internal style blocks. No external CSS links except Google Fonts and CDN scripts.
-3. Import Google Fonts Inter: https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap
-4. body: font-family Inter; margin 0; padding 24px; background linear-gradient(135deg,#0a0f1e,#111827); min-height 100vh; color #f1f5f9.
-5. Dashboard header: centered, h1 with gradient text (background: linear-gradient(135deg,#6366f1,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent), subtitle in #64748b.
-6. KPI row: CSS grid repeat(auto-fit,minmax(200px,1fr)) gap 16px.
-7. KPI cards: background rgba(17,24,39,0.8); backdrop-filter blur(12px); border 1px solid rgba(255,255,255,0.07); border-radius 16px; padding 20px 24px; box-shadow 0 8px 32px rgba(0,0,0,0.4).
-8. KPI icon: 40x40px gradient rounded square. Value: 1.8rem bold. Label: 0.8rem #64748b uppercase.
-9. Charts grid: CSS grid repeat(auto-fit,minmax(420px,1fr)) gap 20px.
-10. Chart cards: same glassmorphism as KPI. transition transform 0.3s. hover: translateY(-4px) + box-shadow 0 16px 48px rgba(99,102,241,0.15) + border-color rgba(99,102,241,0.3).
-11. Chart canvas: max-height 320px.
-12. Chart.js global defaults: Chart.defaults.color=#94a3b8; Chart.defaults.borderColor=rgba(255,255,255,0.05).
-13. KPI numbers: animate with requestAnimationFrame count-up from 0 to target over 1200ms.
-14. Accent palette: #6366f1, #ec4899, #10b981, #f59e0b, #3b82f6 — use for dataset borders and fills.
-HTML:"""
+        generator_prompt = (
+            "You are a senior frontend developer specialising in data visualisation. "
+            "Generate a COMPLETE, self-contained HTML page that implements the following dashboard blueprint.\n\n"
+            "Blueprint:\n" + plan + "\n\n"
+            "Data Schema Sample (for column reference only — do NOT hardcode any values):\n" + data_text + "\n\n"
+            "JAVASCRIPT & DATA RULES:\n"
+            "1. The full dataset is in `window.dashboardData` (array of JSON objects) — use it for ALL values.\n"
+            "2. Dynamically compute KPI values and chart arrays by iterating `window.dashboardData`.\n"
+            "3. Parse strings to numbers where needed: parseFloat(v) || 0.\n"
+            "4. CRITICAL — SORT TIME-SERIES CHRONOLOGICALLY. You MUST copy and use this helper "
+            "for EVERY chart that has a time/month/date axis — do NOT rely on the data's original order:\n\n"
+            + _SORT_HELPER +
+            "\nCHART LIBRARY RULES:\n"
+            "- Always load Chart.js 4 first: https://cdn.jsdelivr.net/npm/chart.js\n"
+            "- For TREEMAP: also load https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2\n"
+            "- For BOXPLOT: also load https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot\n"
+            "- For SANKEY: draw on Canvas using custom JavaScript (no plugin needed).\n"
+            "- For HEATMAP: use CSS grid with inline background-color scaling by value intensity.\n"
+            "- For FUNNEL: CSS trapezoid shapes with proportional widths and gradient fills.\n"
+            "- For CANDLESTICK: draw OHLC rectangles on Canvas manually.\n"
+            "- For DOTPLOT: Chart.js scatter with pointStyle circle and large radius.\n"
+            "- Bar = Chart.js bar with indexAxis y. Column = bar vertical. Area = line with fill true.\n"
+            "- Stacked bar/column: stacked true. Histogram: bin data manually then render as bar.\n"
+            "- Radar, Pie, Doughnut, Scatter, Bubble, Line — native Chart.js types.\n\n"
+            "HTML & CSS RULES:\n"
+            "1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.\n"
+            "2. ONLY internal style blocks. No external CSS links except Google Fonts and CDN scripts.\n"
+            "3. Import Google Fonts Inter from fonts.googleapis.com (wght 300;400;500;600;700;800).\n"
+            "4. body: font-family Inter; margin 0; padding 24px; "
+            "background linear-gradient(135deg,#0a0f1e,#111827); min-height 100vh; color #f1f5f9.\n"
+            "5. Dashboard header: centered h1 with gradient text "
+            "(linear-gradient(135deg,#6366f1,#ec4899) clipped to text), subtitle in #64748b.\n"
+            "6. KPI row: CSS grid repeat(auto-fit,minmax(200px,1fr)) gap 16px.\n"
+            "7. KPI cards: background rgba(17,24,39,0.8); backdrop-filter blur(12px); "
+            "border 1px solid rgba(255,255,255,0.07); border-radius 16px; "
+            "padding 20px 24px; box-shadow 0 8px 32px rgba(0,0,0,0.4).\n"
+            "8. KPI icon: 40x40px gradient rounded square. Value: 1.8rem bold. Label: 0.8rem #64748b uppercase.\n"
+            "9. Charts grid: CSS grid repeat(auto-fit,minmax(420px,1fr)) gap 20px.\n"
+            "10. Chart cards: same glassmorphism as KPI. transition transform 0.3s ease. "
+            "hover: translateY(-4px) + box-shadow 0 16px 48px rgba(99,102,241,0.15) + "
+            "border-color rgba(99,102,241,0.3).\n"
+            "11. Chart canvas: max-height 320px.\n"
+            "12. Chart.js global defaults: Chart.defaults.color = #94a3b8; "
+            "Chart.defaults.borderColor = rgba(255,255,255,0.05).\n"
+            "13. KPI numbers: animate with requestAnimationFrame count-up from 0 to target over 1200ms.\n"
+            "14. Accent palette: #6366f1, #ec4899, #10b981, #f59e0b, #3b82f6 — use for dataset borders and fills.\n"
+            "HTML:"
+        )
 
         raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH).strip()
         
