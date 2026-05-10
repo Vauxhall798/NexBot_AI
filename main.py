@@ -1025,7 +1025,31 @@ JAVASCRIPT & DATA RULES:
 1. The full dataset is in `window.dashboardData` (array of JSON objects) — use it for ALL values.
 2. Dynamically compute KPI values and chart arrays by iterating `window.dashboardData`.
 3. Parse strings to numbers where needed: `parseFloat(v) || 0`.
-4. Sort time-series data chronologically before plotting.
+4. CRITICAL — SORT TIME-SERIES CHRONOLOGICALLY. You MUST embed this helper and use it for EVERY chart that has a time/month/date axis — do NOT rely on the data's original order:
+
+   const MONTH_ORDER = {
+     jan:0, january:0, feb:1, february:1, mar:2, march:2,
+     apr:3, april:3, may:4, jun:5, june:5, jul:6, july:6,
+     aug:7, august:7, sep:8, sept:8, september:8,
+     oct:9, october:9, nov:10, november:10, dec:11, december:11
+   };
+   function sortByTime(arr, key) {
+     return [...arr].sort((a, b) => {
+       const av = String(a[key] ?? '').trim();
+       const bv = String(b[key] ?? '').trim();
+       // Try month name first
+       const am = MONTH_ORDER[av.toLowerCase().slice(0,3)];
+       const bm = MONTH_ORDER[bv.toLowerCase().slice(0,3)];
+       if (am !== undefined && bm !== undefined) return am - bm;
+       // Fall back to date parse (handles "2024-01", "Jan 2024", "Q1 2024", etc.)
+       const ad = new Date(av), bd = new Date(bv);
+       if (!isNaN(ad) && !isNaN(bd)) return ad - bd;
+       // Numeric fallback
+       return parseFloat(av) - parseFloat(bv);
+     });
+   }
+   // Usage for any time-series chart: const sorted = sortByTime(window.dashboardData, 'month_column');
+   // Then: labels = sorted.map(r => r.month_column); values = sorted.map(r => parseFloat(r.value_column)||0);
 
 CHART LIBRARY RULES:
 - Always load Chart.js 4 first: https://cdn.jsdelivr.net/npm/chart.js
