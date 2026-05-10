@@ -73,7 +73,7 @@ LICENSE_DB_PATH  = os.getenv('LICENSE_DB_PATH', 'data/licenses.db')
 
 # Groq generation params
 GROQ_PARAMS_FAST = {'temperature': 0.3, 'max_tokens': 2000,  'top_p': 0.8}
-GROQ_PARAMS_DASH = {'temperature': 0.2, 'max_tokens': 6000, 'top_p': 0.8}
+GROQ_PARAMS_DASH = {'temperature': 0.2, 'max_tokens': 8000, 'top_p': 0.8}
 
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
@@ -949,15 +949,54 @@ def generate_dashboard():
     data_text = data_to_text(source)
 
     # STEP 1: Plan the dashboard
-    planner_prompt = f"""You are an expert data analyst and UX designer. Given the data sample and user request, create a detailed blueprint for a high-end Chart.js dashboard.
-If the data does not contain numerical values suitable for charting or if the user request is completely unrelated to the data, output EXACTLY AND ONLY:
+    planner_prompt = f"""You are an expert data analyst and UX designer. Given the data sample and user request, create a detailed blueprint for a premium Chart.js dashboard.
+
+If the data does not contain numerical values suitable for charting OR the user request is completely unrelated to the data, output EXACTLY AND ONLY:
 WARNING: [explain why the dashboard cannot be created]
 
-Otherwise, output a detailed blueprint specifying:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CHART TYPE CATALOGUE — pick the BEST type(s) from below based on the data and user intent:
+
+1. COMPARISON & RANKING
+   • bar          → Horizontal bars: compare categorical values side-by-side
+   • column       → Vertical bars: same as bar but vertical
+   • radar        → Web/spider chart: compare multiple variables per category
+   • dotplot      → Dot plot: minimal bar alternative, great for rankings
+
+2. TRENDS OVER TIME (Time-Series)
+   • line         → Line chart: trends/fluctuations over continuous time
+   • area         → Area chart: like line but filled — shows volume/magnitude
+   • candlestick  → Candlestick: financial OHLC price movements
+
+3. COMPOSITION (Part-to-Whole)
+   • pie          → Pie chart: proportions of a whole
+   • doughnut     → Doughnut: pie with hollow center for labeling
+   • treemap      → Treemap: nested rectangles for hierarchical proportions
+   • stackedbar   → Stacked bar: cumulative part-of-whole across categories
+   • stackedcolumn→ Stacked column: vertical variant of stacked bar
+
+4. CORRELATION & DISTRIBUTION
+   • scatter      → Scatter plot: relationship between 2 numeric variables
+   • bubble       → Bubble chart: 3-variable scatter (x, y, bubble size)
+   • histogram    → Histogram: frequency distribution of a continuous variable
+   • heatmap      → Heatmap: color-coded matrix for pattern detection
+   • boxplot      → Box & whisker: distribution, median, outliers
+
+5. FLOW & PROCESS
+   • funnel       → Funnel: values through process stages (e.g. conversion)
+   • sankey       → Sankey: flow diagram with proportional arrow widths
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Output a detailed blueprint with:
 1. Dashboard Title: A catchy, professional title.
-2. KPI Cards: Define 3-4 specific KPI metrics to calculate from the data (e.g., Total Sales, Average Score). Specify the exact math logic to compute them.
-3. Charts: Define exactly what charts to create. Specify the exact column names to use for labels (X-axis) and data (Y-axis).
-4. Styling: Define a dark, modern, premium aesthetic (e.g. background #0f172a, cards #1e293b, vivid accent colors like #6366f1 or #ec4899, soft shadows, rounded corners).
+2. KPI Cards: 3-4 specific KPI metrics with exact calculation logic (sum, avg, count, max, min).
+3. Charts: For each chart specify:
+   - chart_type: one of the keys above (e.g. "bar", "line", "heatmap")
+   - title: chart title
+   - x_column: exact column name for labels/x-axis
+   - y_column: exact column name(s) for values/y-axis (comma-separated if multiple)
+   - description: brief note on what insight this reveals
+4. Styling: Dark premium aesthetic — background #0a0f1e, cards #111827, accent colors from [#6366f1, #ec4899, #10b981, #f59e0b, #3b82f6], glassmorphism panels, rounded corners, smooth hover effects.
 
 Data sample:
 {data_text}
@@ -967,31 +1006,55 @@ Blueprint:"""
 
     try:
         plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_FAST).strip()
-        
+
         # Check if the model returned a warning
         if plan.upper().startswith("WARNING:"):
             warning_msg = plan[8:].strip()
             return jsonify({'success': False, 'error': warning_msg})
 
         # STEP 2: Generate the HTML using the plan
-        generator_prompt = f"""You are a senior frontend developer. Generate a COMPLETE, standalone HTML page containing a premium Chart.js dashboard implementing this blueprint:
+        generator_prompt = f"""You are a senior frontend developer specialising in data visualisation. Generate a COMPLETE, self-contained HTML page that implements the following dashboard blueprint.
 
 Blueprint:
 {plan}
 
-Data Schema Sample:
+Data Schema Sample (for column reference only — do NOT hardcode any values):
 {data_text}
 
-CRITICAL RULES FOR JAVASCRIPT & DATA:
-1. DO NOT hardcode data values. The full dataset is already injected into the page via a global variable called `window.dashboardData` (an array of JSON objects).
-2. Write JavaScript to iterate over `window.dashboardData` to dynamically calculate the KPI values and extract the arrays needed for the charts.
-3. Ensure you handle data types properly (e.g., parse strings to numbers if needed).
+JAVASCRIPT & DATA RULES:
+1. The full dataset is in `window.dashboardData` (array of JSON objects) — use it for ALL values.
+2. Dynamically compute KPI values and chart arrays by iterating `window.dashboardData`.
+3. Parse strings to numbers where needed: `parseFloat(v) || 0`.
+4. Sort time-series data chronologically before plotting.
 
-CRITICAL RULES FOR HTML & CSS:
-1. Output ONLY valid HTML (no markdown fences, no explanation outside the HTML).
-2. Use Chart.js via CDN: https://cdn.jsdelivr.net/npm/chart.js
-3. Use internal <style> blocks. Do not link external stylesheets.
-4. Implement a stunning, premium dark mode aesthetic using CSS Grid/Flexbox. Use glassmorphism or sleek solid panels, smooth hover effects, and modern typography (sans-serif).
+CHART LIBRARY RULES:
+- Always load Chart.js 4 first: https://cdn.jsdelivr.net/npm/chart.js
+- For TREEMAP: also load https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2
+- For BOXPLOT: also load https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot
+- For SANKEY: draw on Canvas using custom JavaScript (no plugin needed).
+- For HEATMAP: use CSS grid with inline background-color scaling by value intensity.
+- For FUNNEL: CSS trapezoid shapes with proportional widths and gradient fills.
+- For CANDLESTICK: draw OHLC rectangles on Canvas manually.
+- For DOTPLOT: Chart.js scatter with pointStyle circle and large radius.
+- Bar = Chart.js bar with indexAxis:y. Column = bar vertical. Area = line with fill:true.
+- Stacked bar/column: stacked:true. Histogram: bin data manually then render as bar.
+- Radar, Pie, Doughnut, Scatter, Bubble, Line — native Chart.js types.
+
+HTML & CSS RULES:
+1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.
+2. ONLY internal style blocks. No external CSS links except Google Fonts and CDN scripts.
+3. Import Google Fonts Inter: https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap
+4. body: font-family Inter; margin 0; padding 24px; background linear-gradient(135deg,#0a0f1e,#111827); min-height 100vh; color #f1f5f9.
+5. Dashboard header: centered, h1 with gradient text (background: linear-gradient(135deg,#6366f1,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent), subtitle in #64748b.
+6. KPI row: CSS grid repeat(auto-fit,minmax(200px,1fr)) gap 16px.
+7. KPI cards: background rgba(17,24,39,0.8); backdrop-filter blur(12px); border 1px solid rgba(255,255,255,0.07); border-radius 16px; padding 20px 24px; box-shadow 0 8px 32px rgba(0,0,0,0.4).
+8. KPI icon: 40x40px gradient rounded square. Value: 1.8rem bold. Label: 0.8rem #64748b uppercase.
+9. Charts grid: CSS grid repeat(auto-fit,minmax(420px,1fr)) gap 20px.
+10. Chart cards: same glassmorphism as KPI. transition transform 0.3s. hover: translateY(-4px) + box-shadow 0 16px 48px rgba(99,102,241,0.15) + border-color rgba(99,102,241,0.3).
+11. Chart canvas: max-height 320px.
+12. Chart.js global defaults: Chart.defaults.color=#94a3b8; Chart.defaults.borderColor=rgba(255,255,255,0.05).
+13. KPI numbers: animate with requestAnimationFrame count-up from 0 to target over 1200ms.
+14. Accent palette: #6366f1, #ec4899, #10b981, #f59e0b, #3b82f6 — use for dataset borders and fills.
 HTML:"""
 
         raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH).strip()
