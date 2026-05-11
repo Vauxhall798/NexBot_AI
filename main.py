@@ -246,11 +246,13 @@ def _groq_client():
     return Groq(api_key=GROQ_API_KEY)
 
 
+FALLBACK_GROQ_MODEL = 'llama-3.1-8b-instant'
+
 def groq_prompt(prompt: str, params: dict = None) -> str:
     """Non-streaming Groq call — returns full response string."""
+    p = params or GROQ_PARAMS_FAST
+    client = _groq_client()
     try:
-        p = params or GROQ_PARAMS_FAST
-        client = _groq_client()
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{'role': 'user', 'content': prompt}],
@@ -258,6 +260,17 @@ def groq_prompt(prompt: str, params: dict = None) -> str:
         )
         return completion.choices[0].message.content or ''
     except Exception as e:
+        if '429' in str(e) or 'rate limit' in str(e).lower():
+            print(f"Rate limit hit on {GROQ_MODEL}, falling back to {FALLBACK_GROQ_MODEL}...")
+            try:
+                completion = client.chat.completions.create(
+                    model=FALLBACK_GROQ_MODEL,
+                    messages=[{'role': 'user', 'content': prompt}],
+                    **p
+                )
+                return completion.choices[0].message.content or ''
+            except Exception as inner_e:
+                raise Exception(f"Groq API error (and fallback failed): {inner_e}")
         raise Exception(f"Groq API error: {e}")
 
 
@@ -265,12 +278,25 @@ def groq_stream(prompt: str, params: dict = None):
     """Generator that yields text tokens from Groq streaming API."""
     p = params or GROQ_PARAMS_FAST
     client = _groq_client()
-    stream = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{'role': 'user', 'content': prompt}],
-        stream=True,
-        **p
-    )
+    try:
+        stream = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{'role': 'user', 'content': prompt}],
+            stream=True,
+            **p
+        )
+    except Exception as e:
+        if '429' in str(e) or 'rate limit' in str(e).lower():
+            print(f"Rate limit hit on {GROQ_MODEL}, falling back to {FALLBACK_GROQ_MODEL}...")
+            stream = client.chat.completions.create(
+                model=FALLBACK_GROQ_MODEL,
+                messages=[{'role': 'user', 'content': prompt}],
+                stream=True,
+                **p
+            )
+        else:
+            raise
+            
     for chunk in stream:
         token = chunk.choices[0].delta.content or ''
         if token:
