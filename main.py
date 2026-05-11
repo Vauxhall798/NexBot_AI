@@ -21,6 +21,12 @@ try:
 except ImportError:
     BCRYPT_AVAILABLE = False
 
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+
 # Optional heavy deps — graceful fallback
 try:
     import pandas as pd
@@ -62,6 +68,8 @@ CORS(app, resources={
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL   = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
 GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'qwen/qwen3-32b')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -246,6 +254,20 @@ def _groq_client():
     from groq import Groq
     return Groq(api_key=GROQ_API_KEY)
 
+def gemini_prompt(prompt: str) -> str:
+    """Non-streaming Gemini API call using massive context limits."""
+    if not GEMINI_AVAILABLE:
+        raise Exception("google-generativeai package not installed.")
+    if not GEMINI_API_KEY:
+        raise Exception("GEMINI_API_KEY not configured.")
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel(GEMINI_MODEL)
+    try:
+        response = model.generate_content(prompt)
+        return response.text or ''
+    except Exception as e:
+        raise Exception(f"Gemini API error: {e}")
+
 
 FALLBACK_GROQ_MODEL = 'llama-3.1-8b-instant'
 
@@ -397,9 +419,10 @@ def get_all_sources_text() -> str:
         texts.append(f"Table: {s['name']}\n{data_to_text(s)}")
     combined = "\n\n".join(texts)
     
-    # Cap total combined length to ~4,000 chars to fit within strict 6k TPM Groq limits
-    if len(combined) > 4000:
-        combined = combined[:4000] + "\n...[truncated due to strict token limits]..."
+    # If using Gemini, unlock massive context. If Groq, constrain to 4k characters.
+    limit = 500000 if GEMINI_API_KEY else 4000
+    if len(combined) > limit:
+        combined = combined[:limit] + "\n...[truncated due to strict token limits]..."
     return combined
 
 def extract_python_code(text: str) -> str:
@@ -1045,8 +1068,11 @@ User request: {message}
 Blueprint:"""
 
     try:
-        plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
-        plan = re.sub(r'<think>.*?</think>', '', plan, flags=re.DOTALL).strip()
+        if GEMINI_API_KEY and GEMINI_AVAILABLE:
+            plan = gemini_prompt(planner_prompt).strip()
+        else:
+            plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
+            plan = re.sub(r'<think>.*?</think>', '', plan, flags=re.DOTALL).strip()
 
         # Check if the model returned a warning
         if plan.upper().startswith("WARNING:"):
@@ -1124,8 +1150,11 @@ Blueprint:"""
             "HTML:"
         )
 
-        raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
-        raw_html = re.sub(r'<think>.*?</think>', '', raw_html, flags=re.DOTALL).strip()
+        if GEMINI_API_KEY and GEMINI_AVAILABLE:
+            raw_html = gemini_prompt(generator_prompt).strip()
+        else:
+            raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
+            raw_html = re.sub(r'<think>.*?</think>', '', raw_html, flags=re.DOTALL).strip()
         
         # Strip any accidental markdown fences
         if raw_html.startswith("```"):
