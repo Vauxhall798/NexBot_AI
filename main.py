@@ -72,7 +72,7 @@ CORS(app, resources={
 
 # ── Config ───────────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
-OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'meta-llama/llama-3.3-70b-instruct:free')
+OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openrouter/free')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -267,10 +267,9 @@ def ai_prompt(prompt: str, params: dict = None) -> str:
     
     models_to_try = [
         OPENROUTER_MODEL,
-        "google/gemini-2.0-flash-lite-preview-02-05:free",
-        "qwen/qwen-2.5-72b-instruct:free",
-        "mistralai/mistral-nemo:free",
-        "nvidia/llama-3.1-nemotron-70b-instruct:free"
+        "openrouter/free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "liquid/lfm-2.5-1.2b-instruct:free"
     ]
     
     # Remove duplicates while preserving order
@@ -314,10 +313,9 @@ def ai_stream(prompt: str, params: dict = None):
     
     models_to_try = [
         OPENROUTER_MODEL,
-        "google/gemini-2.0-flash-lite-preview-02-05:free",
-        "qwen/qwen-2.5-72b-instruct:free",
-        "mistralai/mistral-nemo:free",
-        "nvidia/llama-3.1-nemotron-70b-instruct:free"
+        "openrouter/free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "liquid/lfm-2.5-1.2b-instruct:free"
     ]
     models_to_try = list(dict.fromkeys(models_to_try))
     
