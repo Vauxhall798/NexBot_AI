@@ -27,6 +27,12 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
+
 # Optional heavy deps — graceful fallback
 try:
     import pandas as pd
@@ -70,6 +76,8 @@ GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL   = 'llama-3.1-8b-instant'  # Using the extremely fast free model for insights
 
 # ── Plugin Registration ──────────────────────────────────────────────────────
 # Master password that users must supply to register as a plugin consumer.
@@ -345,7 +353,40 @@ def check_system_status() -> dict:
     if not GEMINI_API_KEY:
         status['ready'] = False
         status['error'] = 'GEMINI_API_KEY not set'
+    
+    status['groq_ready'] = GROQ_AVAILABLE and bool(GROQ_API_KEY)
     return status
+
+def groq_prompt(prompt: str) -> str:
+    """Non-streaming Groq call specifically for insights."""
+    if not GROQ_AVAILABLE: raise Exception("Groq package not installed.")
+    if not GROQ_API_KEY: raise Exception("GROQ_API_KEY not configured.")
+    client = Groq(api_key=GROQ_API_KEY)
+    try:
+        completion = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model=GROQ_MODEL,
+        )
+        return completion.choices[0].message.content or ''
+    except Exception as e:
+        raise Exception(f"Groq API error: {e}")
+
+def groq_stream(prompt: str):
+    """Streaming Groq call specifically for insights."""
+    if not GROQ_AVAILABLE: raise Exception("Groq package not installed.")
+    if not GROQ_API_KEY: raise Exception("GROQ_API_KEY not configured.")
+    client = Groq(api_key=GROQ_API_KEY)
+    try:
+        completion = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            stream=True,
+        )
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+    except Exception as e:
+        yield f"\n[Groq API Error: {e}]"
 
 
 def _cache_key(message: str, source_id: Optional[str]) -> str:
@@ -756,7 +797,6 @@ def _parse_mysql(conn_str: str) -> dict:
 
 @app.route('/api/v1/status', methods=['GET', 'OPTIONS'])
 def get_system_status():
-    if request.method == 'OPTIONS': return _corsify_actual_response(jsonify({'success':True}))
     return jsonify(check_system_status())
 
 @app.route('/api/v1/analyze', methods=['POST', 'OPTIONS'])
@@ -821,92 +861,42 @@ We have the following pandas DataFrames loaded:
 User Input: {message}
 
 Instructions:
-1. ANALYSIS: If the user asks for insights, summaries, or questions about the data, ALWAYS write a Python script using pandas. Output ONLY a ```python ... ``` code block.
-2. NO DATA: If 'schema_text' says 'No data sources are currently loaded' and the user asks for analysis, EXPLAIN that you cannot see any data and suggest they connect a database or upload a file.
-3. SEARCH: Use case-insensitive substring matching for text filters.
-4. SAFETY: Check for empty DataFrames before accessing indexes to prevent crashes.
-5. CONVERSATION: Only if the user says something completely unrelated to data (e.g. "how are you?") should you respond naturally without code. If they ask for "insights", that is DATA RELATED—do NOT just greet them!"""
-
-        code_resp = gemini_prompt(code_prompt)
-        is_code = '```python' in code_resp.lower()
-        
-        if not is_code:
-            # Conversational path
-            insight = code_resp.strip()
-            _set_cached(ckey, insight)
-            return jsonify({
-                'success':   True,
-                'insight':   insight,
-                'cached':    False,
-                'source_id': source['id'] if source else None,
-                'timestamp': datetime.now().isoformat(),
-                'usage':     {'current': 1, 'limit': user['limit'], 'remaining': user['limit'] - 1},
-            })
-
-        # Data query path
+1. ANALYSIS: If the user asks for insights, summaries, or questions about the data, ALWAYS write a Python script using pandas. Output ONLY a ```python ... ``` code block        # Data query path
         code = extract_python_code(code_resp)
-        
-        # 3. Execute the code
         exec_result = execute_pandas_code(dfs, code)
-        print(f"\n[DEBUG] Generated Code:\n{code}\n[DEBUG] Exec Result:\n{exec_result}\n")
         
-        # 4. Formulate the final answer
-        final_prompt = f"""You are a Data Analyst AI named "NexBot" assisting a user.
-User Question: {message}
-
-We executed an internal python script on the database to get the exact answer. The output was:
----
-{exec_result}
----
-
-Provide a natural, clear, and descriptive answer to the user based on this output. If it's an error, politely explain that the data couldn't be processed."""
-
-        insight = gemini_prompt(final_prompt).strip()
+        final_prompt = f"User Question: {message}\nOutput: {exec_result}\nAnswer as NexBot."
+        insight = groq_prompt(final_prompt).strip()
+        
         _set_cached(ckey, insight)
         return jsonify({
-            'success':   True,
-            'insight':   insight,
-            'cached':    False,
+            'success': True, 'insight': insight, 'cached': False,
             'source_id': source['id'] if source else None,
             'timestamp': datetime.now().isoformat(),
-            'usage':     {'current': 1, 'limit': user['limit'], 'remaining': user['limit'] - 1},
+            'usage': {'current': 1, 'limit': user['limit'], 'remaining': user['limit'] - 1},
         })
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e),
-                        'insight': f'Error: {e}'}), 500
-
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/v1/analyze/stream', methods=['POST', 'OPTIONS'])
 def analyze_stream():
-    """Streaming SSE endpoint — returns tokens as they arrive for instant perceived response."""
-    if request.method == 'OPTIONS':
-        return '', 204
-    user, err, code = verify_api_key()
-    if err:
-        return err, code
+    """Streaming SSE endpoint powered by Groq."""
+    if request.method == 'OPTIONS': return '', 204
+    user, err, code_err = verify_api_key()
+    if err: return err, code_err
 
-    body    = request.get_json() or {}
+    body = request.get_json() or {}
     message = body.get('message', '').strip()
-    src_id  = body.get('data_source_id')
-
-    if not message:
-        return jsonify({'success': False, 'error': 'message is required'}), 400
+    src_id = body.get('data_source_id')
+    if not message: return jsonify({'success': False, 'error': 'message required'}), 400
 
     status = check_system_status()
-    if not status['ready']:
-        def err_stream():
-            yield f"data: {json.dumps({'error': status.get('error','Gemini not ready'), 'done': True})}\n\n"
+    if not status['groq_ready']:
+        def err_stream(): yield f"data: {json.dumps({'error': 'Groq not ready', 'done': True})}\n\n"
         return Response(err_stream(), mimetype='text/event-stream')
 
-    if src_id:
-        source = get_active_source(src_id)
-        data_text = data_to_text(source) if source else "No data loaded."
-    else:
-        source = None
-        data_text = get_all_sources_text()
-
-    # Serve from cache immediately if available
-    ckey   = _cache_key(message, source['id'] if source else None)
+    source = get_active_source(src_id) if src_id else None
+    ckey = _cache_key(message, source['id'] if source else None)
     cached = _get_cached(ckey)
     if cached:
         def cached_stream():
@@ -916,71 +906,41 @@ def analyze_stream():
 
     def generate():
         try:
-            # 1. Prepare Pandas environment
-            if source:
-                sources_to_use = [source]
-            else:
-                sources_to_use = list(DATA_SOURCES.values())
-                
-            dfs = {s['name']: s['df'] for s in sources_to_use if 'df' in s}
+            dfs = {s['name']: s['df'] for s in (([source] if source else list(DATA_SOURCES.values()))) if 'df' in s}
+            schema_text = "\n".join([f"Table: {s['name']} (Cols: {list(s['schema'].keys())})" for s in (([source] if source else list(DATA_SOURCES.values())))])
             
-            schema_info = []
-            for s in sources_to_use:
-                schema_info.append(f"Table name: {s['name']}\\nColumns: {list(s['schema'].keys())}")
-            if not schema_info:
-                schema_text = "No data sources are currently loaded."
-            else:
-                schema_text = "\\n\\n".join(schema_info)
-
-            # 2. Ask Gemini to write Python code or converse
-            code_prompt = f"""You are an elite Data Analyst AI named "NexBot". 
-We have the following pandas DataFrames loaded into variables:
-{schema_text}
-
-User Input: {message}
-
-Instructions:
-1. If the user is asking about the data, write a Python script using pandas to find the answer. Output ONLY a ```python ... ``` code block. Use `print()` to output the exact result. The DataFrames are loaded as variables matching their exact Table names (e.g. `VendorMaster`).
-2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.' AND the user is asking to analyze data, DO NOT write a Python script. Instead, inform them they need to connect a database or upload a file.
-3. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
-4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
-5. IMPORTANT: If the user says hello, makes a conversational comment, or asks a general question unrelated to the data, ALWAYS respond naturally, greet them friendly, and answer their general question directly, even if no data is loaded! DO NOT write python code for this."""
-
-            code_resp = gemini_prompt(code_prompt)
-            is_code = '```python' in code_resp.lower()
+            code_prompt = f"User: {message}\nData: {schema_text}\nIf data question, output ONLY ```python ... ``` using pandas. Else converse."
+            code_resp = groq_prompt(code_prompt)
             
-            if not is_code:
-                # Conversational path
-                conv_msg = {'token': code_resp.strip(), 'done': False}
-                yield f"data: {json.dumps(conv_msg)}\n\n"
+            if '```python' not in code_resp.lower():
+                yield f"data: {json.dumps({'token': code_resp.strip(), 'done': False})}\n\n"
                 _set_cached(ckey, code_resp.strip())
-                done_msg = {'done': True, 'cached': False}
-                yield f"data: {json.dumps(done_msg)}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
                 return
 
-            # Data query path
             code = extract_python_code(code_resp)
+            yield f"data: {json.dumps({'token': '⚙️ Analyzing...\n\n', 'done': False})}\n\n"
+            exec_res = execute_pandas_code(dfs, code)
             
-            query_msg = {'token': '⚙️ Querying data on all rows...\n\n', 'done': False}
-            yield f"data: {json.dumps(query_msg)}\n\n"
-            
-            # 3. Execute the code
-            exec_result = execute_pandas_code(dfs, code)
-            print(f"\n[DEBUG] Generated Code:\n{code}\n[DEBUG] Exec Result:\n{exec_result}\n")
-            
-            # 4. Formulate the final answer stream
-            final_prompt = f"""You are a Data Analyst AI named "NexBot" assisting a user.
-User Question: {message}
+            final_p = f"User: {message}\nResult: {exec_res}\nExplain as NexBot."
+            full_ans = []
+            for token in groq_stream(final_p):
+                full_ans.append(token)
+                yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+            _set_cached(ckey, "".join(full_ans))
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
 
-We executed an internal python script on the database to get the exact answer. The output was:
----
-{exec_result}
----
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
-Provide a natural, clear, and descriptive answer to the user based on this output. If it's an error, politely explain that the data couldn't be processed."""
+# ── Dashboard endpoint ────────────────────────────────────────────────────────
 
-            full = []
-            for token in gemini_stream(final_prompt):
+@app.route('/api/v1/dashboard/generate', methods=['POST', 'OPTIONS'])
+def generate_dashboard():
+    if request.method == 'OPTIONS': return '', 204
+    user, err, code = verify_api_key()
+    if err: return err, codeen in gemini_stream(final_prompt):
                 full.append(token)
                 token_msg = {'token': token, 'done': False}
                 yield f"data: {json.dumps(token_msg)}\n\n"
