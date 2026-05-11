@@ -967,10 +967,11 @@ User Input: {message}
 
 Instructions:
 1. DATA: Use table names directly (e.g. `df = SalesData`). 
-2. NO HALLUCINATIONS: If the table the user wants is NOT in the list above, do NOT guess. Tell them what you CAN see.
-3. CONNECTION ERROR: If the list says "CRITICAL ERROR", do NOT write code. Tell the user their database connection is failing.
-4. FORBIDDEN: NEVER use `pd.read_csv()`.
-5. OUTPUT: ONLY a ```python ... ``` block for data analysis.
+2. EXACT COLUMNS (CRITICAL): You MUST strictly use ONLY the exact column names listed in the schema above. NEVER invent or hallucinate column names (e.g. do not use 'dept_name' if it is not explicitly listed).
+3. NO HALLUCINATIONS: If the table the user wants is NOT in the list above, do NOT guess. Tell them what you CAN see.
+4. CONNECTION ERROR: If the list says "CRITICAL ERROR", do NOT write code. Tell the user their database connection is failing.
+5. FORBIDDEN: NEVER use `pd.read_csv()`.
+6. OUTPUT: ONLY a ```python ... ``` block for data analysis.
 """
             code_resp = gemini_prompt(code_prompt)
             
