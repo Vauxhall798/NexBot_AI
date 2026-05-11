@@ -2,7 +2,7 @@
 
 > **NexBot AI** is an AI-powered data analyst chatbot widget. Drop it into any website with just **2 steps** — no coding experience needed.
 
-**Server URL:** `https://nexbot-ai-lb0h.onrender.com`
+**Server URL:** `https://nexbot-ai-us.onrender.com`
 
 ---
 
@@ -14,7 +14,7 @@ You need a **registration password** from the NexBot administrator to get starte
 
 **Mac/Linux:**
 ```bash
-curl -X POST https://nexbot-ai-lb0h.onrender.com/api/v1/register \
+curl -X POST https://nexbot-ai-us.onrender.com/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{
     "password": "PASSWORD_FROM_ADMIN",
@@ -25,7 +25,7 @@ curl -X POST https://nexbot-ai-lb0h.onrender.com/api/v1/register \
 
 **Windows (PowerShell):**
 ```powershell
-Invoke-RestMethod -Uri "https://nexbot-ai-lb0h.onrender.com/api/v1/register" `
+Invoke-RestMethod -Uri "https://nexbot-ai-us.onrender.com/api/v1/register" `
   -Method POST -ContentType "application/json" `
   -Body '{"password":"PASSWORD_FROM_ADMIN","name":"Your Name","email":"your@email.com"}'
 ```
@@ -34,7 +34,7 @@ Invoke-RestMethod -Uri "https://nexbot-ai-lb0h.onrender.com/api/v1/register" `
 
 1. Open Postman → New Request
 2. Set method to **POST**
-3. URL: `https://nexbot-ai-lb0h.onrender.com/api/v1/register`
+3. URL: `https://nexbot-ai-us.onrender.com/api/v1/register`
 4. Go to **Body** → select **raw** → choose **JSON**
 5. Paste:
 ```json
@@ -51,7 +51,7 @@ Invoke-RestMethod -Uri "https://nexbot-ai-lb0h.onrender.com/api/v1/register" `
 Open any webpage → press `F12` → go to **Console** tab → paste:
 
 ```javascript
-fetch('https://nexbot-ai-lb0h.onrender.com/api/v1/register', {
+fetch('https://nexbot-ai-us.onrender.com/api/v1/register', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -87,11 +87,11 @@ Copy the code below and paste it into your website's HTML **before the closing `
 
 ```html
 <!-- 🤖 NexBot AI Chatbot Widget -->
-<script src="https://nexbot-ai-lb0h.onrender.com/plugin/chatbot-plugin.js"></script>
+<script src="https://nexbot-ai-us.onrender.com/plugin/chatbot-plugin.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     new AITableChatbot({
-      apiEndpoint: 'https://nexbot-ai-lb0h.onrender.com',
+      apiEndpoint: 'https://nexbot-ai-us.onrender.com',
       apiKey: 'YOUR_API_KEY'
     });
   });
@@ -116,11 +116,11 @@ Copy the code below and paste it into your website's HTML **before the closing `
     <p>Your content here...</p>
 
     <!-- Paste NexBot right before </body> -->
-    <script src="https://nexbot-ai-lb0h.onrender.com/plugin/chatbot-plugin.js"></script>
+    <script src="https://nexbot-ai-us.onrender.com/plugin/chatbot-plugin.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         new AITableChatbot({
-          apiEndpoint: 'https://nexbot-ai-lb0h.onrender.com',
+          apiEndpoint: 'https://nexbot-ai-us.onrender.com',
           apiKey: 'YOUR_API_KEY'
         });
       });
@@ -134,11 +134,11 @@ Copy the code below and paste it into your website's HTML **before the closing `
 2. Go to **Settings → Insert Headers and Footers**
 3. In the **"Scripts in Footer"** box, paste:
 ```html
-<script src="https://nexbot-ai-lb0h.onrender.com/plugin/chatbot-plugin.js"></script>
+<script src="https://nexbot-ai-us.onrender.com/plugin/chatbot-plugin.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     new AITableChatbot({
-      apiEndpoint: 'https://nexbot-ai-lb0h.onrender.com',
+      apiEndpoint: 'https://nexbot-ai-us.onrender.com',
       apiKey: 'YOUR_API_KEY'
     });
   });
@@ -156,10 +156,10 @@ import { useEffect } from 'react';
 export default function NexBot() {
   useEffect(() => {
     const script = document.createElement('script');
-    script.src = 'https://nexbot-ai-lb0h.onrender.com/plugin/chatbot-plugin.js';
+    script.src = 'https://nexbot-ai-us.onrender.com/plugin/chatbot-plugin.js';
     script.onload = () => {
       new window.AITableChatbot({
-        apiEndpoint: 'https://nexbot-ai-lb0h.onrender.com',
+        apiEndpoint: 'https://nexbot-ai-us.onrender.com',
         apiKey: 'YOUR_API_KEY'
       });
     };
@@ -177,10 +177,10 @@ import { onMounted } from 'vue'
 
 onMounted(() => {
   const s = document.createElement('script')
-  s.src = 'https://nexbot-ai-lb0h.onrender.com/plugin/chatbot-plugin.js'
+  s.src = 'https://nexbot-ai-us.onrender.com/plugin/chatbot-plugin.js'
   s.onload = () => {
     new window.AITableChatbot({
-      apiEndpoint: 'https://nexbot-ai-lb0h.onrender.com',
+      apiEndpoint: 'https://nexbot-ai-us.onrender.com',
       apiKey: 'YOUR_API_KEY'
     })
   }
@@ -234,4 +234,4 @@ onMounted(() => {
 ## Need Help?
 
 Visit this URL in your browser for live setup instructions:
-**https://nexbot-ai-lb0h.onrender.com/api/v1/plugin/embed**
+**https://nexbot-ai-us.onrender.com/api/v1/plugin/embed**

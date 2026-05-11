@@ -9,7 +9,7 @@ import json
 import time
 import sys
 
-BASE_URL = "https://nexbot-ai-lb0h.onrender.com"
+BASE_URL = "https://nexbot-ai-us.onrender.com"
 API_KEY  = "test_key_123"          # hardcoded active key
 ADMIN_PW = "NexBot@2026SecurePass"
 
