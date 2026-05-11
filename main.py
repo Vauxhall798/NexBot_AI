@@ -281,8 +281,11 @@ def gemini_prompt(prompt: str, params: dict = None) -> str:
                     try:
                         from groq import Groq
                         client = Groq(api_key=groq_key)
-                        # Aggressive truncation for Groq free tier (6000 TPM limit)
-                        truncated_prompt = prompt[:12000] + "\n...[Truncated for fallback]..." if len(prompt) > 12000 else prompt
+                        # Smart truncation: keep the beginning (context) and the crucial end instructions
+                        if len(prompt) > 12000:
+                            truncated_prompt = prompt[:2000] + "\n\n...[Data truncated for fallback]...\n\n" + prompt[-10000:]
+                        else:
+                            truncated_prompt = prompt
                         chat_completion = client.chat.completions.create(
                             messages=[{"role": "user", "content": truncated_prompt}],
                             model="llama-3.1-8b-instant",
@@ -1066,7 +1069,7 @@ Output a detailed blueprint with:
    - y_column: exact column name(s) for values/y-axis (comma-separated if multiple)
    - description: brief note on what insight this reveals
 4. Styling: Modern light premium aesthetic — background #f8fafc, cards #ffffff with subtle shadows, accent colors from [#6366f1, #10b981, #f43f5e], rounded corners. No sidebar.
-5. Intelligent Features: Plan a layout with KPI trend badges, an Executive Summary text block, and mention the interactive drill-down capability.
+5. Intelligent Features: Plan a layout with KPI trend badges. ONLY include an Executive Summary text block if the user specifically asked for a 'report' or 'summary' in their request. Otherwise, omit it.
 6. Chart Limitations (CRITICAL): Do NOT generate a chart for every single table. Identify ONLY the top 3 or 4 most important business insights across the entire database and chart those. Less is more.
 
 Data sample:
