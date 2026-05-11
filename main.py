@@ -987,7 +987,7 @@ def generate_dashboard():
         data_text = get_all_sources_text()
 
     # STEP 1: Plan the dashboard
-    planner_prompt = f"""You are an expert data analyst and UX designer. Given the data sample and user request, create a detailed blueprint for a premium Chart.js dashboard.
+    planner_prompt = f"""You are a Principal Data Scientist and Executive Dashboard Architect. Your primary goal is to perform deep, statistical data analysis and uncover hidden business trends. Given the data sample and user request, create a highly analytical blueprint for a premium Chart.js dashboard.
 
 If the data does not contain numerical values suitable for charting OR the user request is completely unrelated to the data, output EXACTLY AND ONLY:
 WARNING: [explain why the dashboard cannot be created]
