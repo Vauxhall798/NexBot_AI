@@ -1120,7 +1120,43 @@ Blueprint:"""
         # Inject the full JSON data so the dashboard works instantly
         full_json_dict = {s['name']: s.get('data', []) for s in sources_to_use}
         full_json = json.dumps(full_json_dict, default=str)
-        data_script = f"\n<script>\n// Auto-injected datasets\nwindow.dashboardData = {full_json};\n</script>\n"
+        data_script = f"""
+<script>
+// Auto-injected datasets
+window.dashboardData = {full_json};
+
+// Auto-injected Global Chart.js Vibrant Colors Hook
+document.addEventListener("DOMContentLoaded", function() {{
+    if (typeof Chart !== 'undefined') {{
+        Chart.defaults.color = '#475569';
+        Chart.defaults.font.family = 'Inter, sans-serif';
+        const VIBRANT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#14b8a6', '#8b5cf6'];
+        
+        Chart.register({{
+            id: 'forceVibrantColors',
+            beforeUpdate: function(chart) {{
+                chart.data.datasets.forEach((dataset, i) => {{
+                    // Aggressively overwrite black, missing, or monochromatic string colors
+                    if (!dataset.backgroundColor || typeof dataset.backgroundColor === 'string') {{
+                        if (['pie', 'doughnut', 'bar', 'polarArea'].includes(chart.config.type) || dataset.type === 'bar') {{
+                            dataset.backgroundColor = VIBRANT_COLORS;
+                            dataset.borderColor = '#ffffff';
+                            dataset.borderWidth = 1;
+                        }} else {{
+                            dataset.backgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
+                            dataset.borderColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
+                            dataset.pointBackgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
+                            dataset.pointRadius = 5;
+                            dataset.pointHoverRadius = 7;
+                        }}
+                    }}
+                }});
+            }}
+        }});
+    }}
+}});
+</script>
+"""
         
         # Inject right after <head> if it exists, otherwise prepend
         if "<head>" in raw_html.lower():
