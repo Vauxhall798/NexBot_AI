@@ -307,7 +307,8 @@ def dataframe_to_source(df, name: str, source_type: str) -> dict:
     for col in df.columns:
         dtype = str(df[col].dtype)
         schema[col] = 'numeric' if 'int' in dtype or 'float' in dtype else 'text'
-    data = df.head(100).fillna('').to_dict(orient='records')
+    # Ensure full data is available for accurate frontend dashboard aggregations
+    data = df.fillna('').to_dict(orient='records')
     entry = {
         'id':           source_id,
         'name':         name,
