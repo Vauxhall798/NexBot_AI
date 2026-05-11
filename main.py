@@ -333,11 +333,19 @@ def gemini_stream(prompt: str, params: dict = None):
         else:
             yield f"\n[Gemini API Error: {e}]"
 
-def check_gemini_status() -> dict:
-    """Verify the Gemini API key is set and reachable."""
+def check_system_status() -> dict:
+    """Verify the system state, models, and data connectivity."""
+    status = {
+        'ready': True,
+        'model': GEMINI_MODEL,
+        'data_sources_loaded': len(DATA_SOURCES),
+        'tables': [s['name'] for s in DATA_SOURCES.values()],
+        'postgres_error': globals().get('PG_ERROR', None)
+    }
     if not GEMINI_API_KEY:
-        return {'ready': False, 'error': 'GEMINI_API_KEY not set in .env'}
-    return {'ready': True, 'model': GEMINI_MODEL}
+        status['ready'] = False
+        status['error'] = 'GEMINI_API_KEY not set'
+    return status
 
 
 def _cache_key(message: str, source_id: Optional[str]) -> str:
@@ -761,7 +769,7 @@ def analyze():
     if not message:
         return jsonify({'success': False, 'error': 'message is required'}), 400
 
-    status = check_gemini_status()
+    status = check_system_status()
     if not status['ready']:
         return jsonify({'success': False, 'error': status.get('error', 'Gemini not ready'),
                         'insight': 'Check your GROQ_API_KEY in .env'}), 503
@@ -801,18 +809,18 @@ def analyze():
             schema_text = "\n\n".join(schema_info)
 
         # 2. Ask Gemini to write Python code or converse
-        code_prompt = f"""You are an elite Data Analyst AI named "NexBot". 
-We have the following pandas DataFrames loaded into variables:
+        code_prompt = f"""You are "NexBot", an elite Data Science & Analytics AI.
+We have the following pandas DataFrames loaded:
 {schema_text}
 
 User Input: {message}
 
 Instructions:
-1. If the user is asking about the data, write a Python script using pandas to find the answer. Output ONLY a ```python ... ``` code block. Use `print()` to output the exact result. The DataFrames are loaded as variables matching their exact Table names (e.g. `VendorMaster`).
-2. IMPORTANT: If 'schema_text' says 'No data sources are currently loaded.' AND the user is asking to analyze data, DO NOT write a Python script. Instead, inform them they need to connect a database or upload a file.
-3. IMPORTANT: When searching or filtering text, ALWAYS use case-insensitive substring matching (e.g. `df[df['Column'].str.contains('term', case=False, na=False)]`). Do not use exact `==` matches for text.
-4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
-5. IMPORTANT: If the user says hello, makes a conversational comment, or asks a general question unrelated to the data, ALWAYS respond naturally, greet them friendly, and answer their general question directly, even if no data is loaded! DO NOT write python code for this."""
+1. ANALYSIS: If the user asks for insights, summaries, or questions about the data, ALWAYS write a Python script using pandas. Output ONLY a ```python ... ``` code block.
+2. NO DATA: If 'schema_text' says 'No data sources are currently loaded' and the user asks for analysis, EXPLAIN that you cannot see any data and suggest they connect a database or upload a file.
+3. SEARCH: Use case-insensitive substring matching for text filters.
+4. SAFETY: Check for empty DataFrames before accessing indexes to prevent crashes.
+5. CONVERSATION: Only if the user says something completely unrelated to data (e.g. "how are you?") should you respond naturally without code. If they ask for "insights", that is DATA RELATED—do NOT just greet them!"""
 
         code_resp = gemini_prompt(code_prompt)
         is_code = '```python' in code_resp.lower()
@@ -879,7 +887,7 @@ def analyze_stream():
     if not message:
         return jsonify({'success': False, 'error': 'message is required'}), 400
 
-    status = check_gemini_status()
+    status = check_system_status()
     if not status['ready']:
         def err_stream():
             yield f"data: {json.dumps({'error': status.get('error','Gemini not ready'), 'done': True})}\n\n"
@@ -1001,7 +1009,7 @@ def generate_dashboard():
     src_id  = body.get('data_source_id')
     mode    = body.get('type', 'inbuilt')   # 'inbuilt' | 'download'
 
-    status = check_gemini_status()
+    status = check_system_status()
     if not status['ready']:
         return jsonify({'success': False, 'error': status.get('error', 'Gemini not ready')}), 503
 
@@ -1408,7 +1416,7 @@ preload_databases()
 # ── Startup ───────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     port   = int(os.getenv('PORT', 5000))
-    status = check_gemini_status()
+    status = check_system_status()
 
     print("\n" + "=" * 60)
     print("🤖  NexBot AI — Data Chatbot API (Gemini)")
