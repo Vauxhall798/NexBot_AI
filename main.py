@@ -1156,19 +1156,23 @@ Blueprint:"""
 // Auto-injected datasets
 window.dashboardData = {full_json};
 
-// Auto-injected Global Chart.js Vibrant Colors Hook
-document.addEventListener("DOMContentLoaded", function() {{
-    if (typeof Chart !== 'undefined') {{
+// Resilient Global Chart.js Hook (waits for library to load)
+(function() {{
+    function registerVibrantHook() {{
+        if (typeof Chart === 'undefined') {{
+            setTimeout(registerVibrantHook, 100);
+            return;
+        }}
+        
         Chart.defaults.color = '#475569';
         Chart.defaults.scale.grid.color = '#e2e8f0';
         Chart.defaults.font.family = 'Inter, sans-serif';
-        const VIBRANT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#14b8a6', '#8b5cf6'];
+        const VIBRANT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
         
         Chart.register({{
             id: 'forceVibrantColors',
             beforeUpdate: function(chart) {{
                 chart.data.datasets.forEach((dataset, i) => {{
-                    // Aggressively overwrite black, missing, or monochromatic string colors
                     if (!dataset.backgroundColor || typeof dataset.backgroundColor === 'string') {{
                         if (['pie', 'doughnut', 'bar', 'polarArea'].includes(chart.config.type) || dataset.type === 'bar') {{
                             dataset.backgroundColor = VIBRANT_COLORS;
@@ -1180,14 +1184,31 @@ document.addEventListener("DOMContentLoaded", function() {{
                             dataset.pointBackgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
                             dataset.pointBorderColor = '#ffffff';
                             dataset.pointRadius = 5;
-                            dataset.pointHoverRadius = 7;
                         }}
                     }}
                 }});
             }}
         }});
+        
+        // Force update any charts that loaded before this script
+        if (Chart.instances) {{
+            Object.values(Chart.instances).forEach(i => i.update());
+        }}
     }}
-}});
+    registerVibrantHook();
+}})();
+
+// Export & Delete Helpers
+window.removeCard = function(btn) {{ btn.closest('.card').remove(); }};
+window.exportToHTML = function() {{
+    const html = document.documentElement.outerHTML;
+    const blob = new Blob([html], {{ type: 'text/html' }});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'NexBot_Executive_Dashboard.html';
+    a.click();
+}};
 </script>
 """
         
