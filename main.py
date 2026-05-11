@@ -72,7 +72,7 @@ CORS(app, resources={
 
 # ── Config ───────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-pro')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -266,39 +266,10 @@ def gemini_prompt(prompt: str, params: dict = None) -> str:
         response = model.generate_content(prompt, generation_config=config)
         return response.text or ''
     except Exception as e:
-        error_str = str(e).lower()
-        if '429' in error_str or 'quota' in error_str or 'rate' in error_str:
-            print(f"[API FALLBACK] 429 Hit on {GEMINI_MODEL}. Falling back to gemini-2.0-flash...")
-            try:
-                fallback_model = genai.GenerativeModel('gemini-2.0-flash')
-                response = fallback_model.generate_content(prompt, generation_config=config)
-                return response.text or ''
-            except Exception as fallback_e:
-                # 3RD TIER FALLBACK: Groq (using Llama 3.1 8B which has high free limits)
-                groq_key = os.getenv('GROQ_API_KEY')
-                if groq_key:
-                    print("[API FALLBACK] Gemini exhausted. Falling back to Groq Llama-3.1-8b...")
-                    try:
-                        from groq import Groq
-                        client = Groq(api_key=groq_key)
-                        # Smart truncation: keep the beginning (context) and the crucial end instructions
-                        if len(prompt) > 12000:
-                            truncated_prompt = prompt[:2000] + "\n\n...[Data truncated for fallback]...\n\n" + prompt[-10000:]
-                        else:
-                            truncated_prompt = prompt
-                        chat_completion = client.chat.completions.create(
-                            messages=[{"role": "user", "content": truncated_prompt}],
-                            model="llama-3.1-8b-instant",
-                            max_tokens=8000
-                        )
-                        return chat_completion.choices[0].message.content or ''
-                    except Exception as groq_e:
-                        raise Exception(f"All AI engines (Gemini & Groq) exhausted: {groq_e}")
-                raise Exception(f"Gemini API (and Fallback) error: {fallback_e}")
         raise Exception(f"Gemini API error: {e}")
 
 def gemini_stream(prompt: str, params: dict = None):
-    """Generator that yields text tokens from Gemini streaming API with 3-tier fallback."""
+    """Generator that yields text tokens from Gemini streaming API."""
     if not GEMINI_AVAILABLE:
         raise Exception("google-generativeai package not installed.")
     if not GEMINI_API_KEY:
@@ -314,39 +285,7 @@ def gemini_stream(prompt: str, params: dict = None):
             if chunk.text:
                 yield chunk.text
     except Exception as e:
-        error_str = str(e).lower()
-        if '429' in error_str or 'quota' in error_str or 'rate' in error_str:
-            print(f"[API FALLBACK] 429 Hit on {GEMINI_MODEL}. Falling back to gemini-2.0-flash...")
-            try:
-                fallback_model = genai.GenerativeModel('gemini-2.0-flash')
-                response = fallback_model.generate_content(prompt, stream=True, generation_config=config)
-                for chunk in response:
-                    if chunk.text:
-                        yield chunk.text
-            except Exception as fallback_e:
-                # 3RD TIER FALLBACK: Groq
-                groq_key = os.getenv('GROQ_API_KEY')
-                if groq_key:
-                    print("[API FALLBACK] Gemini exhausted. Falling back to Groq stream...")
-                    try:
-                        from groq import Groq
-                        client = Groq(api_key=groq_key)
-                        truncated_prompt = prompt[:20000] + "\n...[Truncated for fallback]..." if len(prompt) > 20000 else prompt
-                        completion = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[{"role": "user", "content": truncated_prompt}],
-                            stream=True,
-                        )
-                        for chunk in completion:
-                            if chunk.choices[0].delta.content:
-                                yield chunk.choices[0].delta.content
-                        return
-                    except Exception as groq_e:
-                        yield f"\n[All AI engines exhausted: {groq_e}]"
-                else:
-                    yield f"\n[Gemini Fallback Error: {fallback_e}]"
-        else:
-            yield f"\n[Gemini API Error: {e}]"
+        yield f"\n[Gemini API Error: {e}]"
 
 def check_system_status() -> dict:
     """Verify the system state, models, and data connectivity."""
