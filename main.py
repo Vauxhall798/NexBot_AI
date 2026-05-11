@@ -61,7 +61,7 @@ CORS(app, resources={
 # ── Config ───────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL   = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
-GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'deepseek-r1-distill-llama-70b')
+GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'qwen/qwen3-32b')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
