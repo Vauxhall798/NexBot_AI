@@ -1106,14 +1106,18 @@ Blueprint:"""
             "EXECUTIVE UI/UX & CSS RULES:\n"
             "1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.\n"
             "2. ONLY internal style blocks. Import Google Fonts Inter (wght 300;400;500;600;700;800).\n"
-            "3. STUNNING VIBRANT DARK MODE: `body` MUST be `background: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; padding: 40px; margin: 0; min-height: 100vh;`\n"
-            "4. DASHBOARD HEADER: Make the main `h1` incredibly vibrant using a gradient: `background: linear-gradient(to right, #38bdf8, #818cf8, #e879f9); -webkit-background-clip: text; color: transparent; font-weight: 800; font-size: 2.5rem;`\n"
-            "5. CARDS (Glassmorphism): ALL cards (KPIs and Charts) MUST use `background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);`\n"
-            "6. KPI GRID: `display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px;`\n"
-            "7. MASSIVE CHART GRID (CRITICAL FOR READABILITY): Charts MUST NOT be squished! Wrap chart cards in a container with `display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 40px;`. This ensures a maximum of 2 massive charts per row!\n"
-            "8. CHART CANVAS HEIGHT: Ensure the `div` wrapping each `<canvas>` has `height: 450px; position: relative; margin-top: 20px;` so charts are huge and breathable.\n"
-            "9. COLORS (CRITICAL): You MUST declare `const CHART_COLORS = ['#38bdf8', '#34d399', '#fb7185', '#fbbf24', '#c084fc', '#2dd4bf', '#f472b6', '#a3e635'];` globally. You MUST map this exact array to the `backgroundColor` and `borderColor` of EVERY single chart dataset (Bar, Pie, Line, Scatter, etc.). NEVER use black bars or monochromatic grey fills.\n"
-            "10. Add a nicely styled `#data-table-container` div at the bottom of the dashboard (hidden by default) with a clean CSS table for displaying raw underlying data. Style the table for Dark Mode (bg #1e293b, borders #334155).\n\n"
+            "3. STUNNING VIBRANT LIGHT MODE: `body` MUST be `background: #f8fafc; color: #1e293b; font-family: 'Inter', sans-serif; padding: 40px; margin: 0; min-height: 100vh;` \n"
+            "4. DASHBOARD HEADER: Make the main `h1` incredibly vibrant using a gradient: `background: linear-gradient(to right, #6366f1, #8b5cf6, #d946ef); -webkit-background-clip: text; color: transparent; font-weight: 800; font-size: 2.5rem;`\n"
+            "5. CARDS: ALL cards (KPIs and Charts) MUST use `background: #ffffff; border: 1px solid #e2e8f0; border-radius: 24px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.03); position: relative;` \n"
+            "6. KPI GRID: `display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px;` \n"
+            "7. MASSIVE CHART GRID: Charts MUST be large! Wrap chart cards in a container with `display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 40px;`.\n"
+            "8. CHART CANVAS HEIGHT: Ensure the `div` wrapping each `<canvas>` has `height: 450px; position: relative; margin-top: 20px;`.\n"
+            "9. COLORS (CRITICAL): You MUST declare `const CHART_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];` globally. \n"
+            "10. EXPORT & DELETE (CRITICAL): \n"
+            "    - Add an 'Export Dashboard (.html)' button to the top-right header.\n"
+            "    - Add a small, elegant 'Remove' button in the top-right corner of each chart card (`position: absolute; top: 15px; right: 15px;`).\n"
+            "    - Style the Remove button as a light grey circle that turns red on hover. \n"
+            "11. Add a nicely styled `#data-table-container` div at the bottom (hidden by default) for raw data view.\n\n"
             "EXECUTIVE JAVASCRIPT LOGIC (CRITICAL):\n"
             "1. INSIGHTS: The 'Dynamic Executive Summary' MUST identify the highest performing category/product, note major trends, and provide a strategic recommendation.\n"
             "2. FORMATTING: Use `Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })` to format large numbers (e.g. 1.8M instead of 1862300).\n"
@@ -1122,7 +1126,10 @@ Blueprint:"""
             "4. DATA LIMITS: If 'Top N', use `.sort((a,b) => b[valKey] - a[valKey]).slice(0, N)`. For Line/Bar charts, if the dataset has >30 rows, you MUST aggregate the data in JS (e.g. sum by month) or `.slice(-30)` the most recent points. Do NOT plot hundreds of points as it makes the chart unreadable.\n"
             "5. NO HTML CHARTS: ALL charts MUST be drawn using Chart.js `<canvas>`. NEVER draw charts using raw HTML `<div>` elements with dynamic heights, as they cause massive overflow bugs.\n"
             "6. CHART OPTIONS: Always pass `options: { responsive: true, maintainAspectRatio: false }` to Chart.js.\n"
-            "7. KPI BADGES: Must contain actual text (e.g., '+12.4%'). Do NOT draw empty circles or pills. Style them nicely (e.g., green bg-emerald-100 text-emerald-700).\n"
+            "7. KPI BADGES: Must contain actual text (e.g., '+12.4%'). Style them with soft background pills.\n"
+            "8. INTERACTIVE FEATURES: \n"
+            "   - Implement `window.removeCard(btn)` function: `btn.closest('.card').remove();`.\n"
+            "   - Implement `window.exportToHTML()` function: Create a Blob from `document.documentElement.outerHTML`, generate a URL, and trigger a download of 'NexBot_Dashboard.html'. \n"
             "HTML:"
         )
 
@@ -1152,10 +1159,10 @@ window.dashboardData = {full_json};
 // Auto-injected Global Chart.js Vibrant Colors Hook
 document.addEventListener("DOMContentLoaded", function() {{
     if (typeof Chart !== 'undefined') {{
-        Chart.defaults.color = '#cbd5e1';
-        Chart.defaults.scale.grid.color = '#334155';
+        Chart.defaults.color = '#475569';
+        Chart.defaults.scale.grid.color = '#e2e8f0';
         Chart.defaults.font.family = 'Inter, sans-serif';
-        const VIBRANT_COLORS = ['#38bdf8', '#34d399', '#fb7185', '#fbbf24', '#c084fc', '#2dd4bf', '#f472b6', '#a3e635', '#22d3ee', '#818cf8'];
+        const VIBRANT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#14b8a6', '#8b5cf6'];
         
         Chart.register({{
             id: 'forceVibrantColors',
@@ -1165,13 +1172,13 @@ document.addEventListener("DOMContentLoaded", function() {{
                     if (!dataset.backgroundColor || typeof dataset.backgroundColor === 'string') {{
                         if (['pie', 'doughnut', 'bar', 'polarArea'].includes(chart.config.type) || dataset.type === 'bar') {{
                             dataset.backgroundColor = VIBRANT_COLORS;
-                            dataset.borderColor = '#1e293b';
-                            dataset.borderWidth = 2;
+                            dataset.borderColor = '#ffffff';
+                            dataset.borderWidth = 1;
                         }} else {{
                             dataset.backgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
                             dataset.borderColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
                             dataset.pointBackgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
-                            dataset.pointBorderColor = '#1e293b';
+                            dataset.pointBorderColor = '#ffffff';
                             dataset.pointRadius = 5;
                             dataset.pointHoverRadius = 7;
                         }}
