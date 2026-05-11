@@ -1176,13 +1176,17 @@ Blueprint:"""
             raw_html = gemini_prompt(generator_prompt).strip()
             raw_html = re.sub(r'<think>.*?</think>', '', raw_html, flags=re.DOTALL).strip()
         
-        # Strip any accidental markdown fences
-        if raw_html.startswith("```"):
-            raw_html = "\n".join(raw_html.split("\n")[1:])
-            if raw_html.startswith("html"):
-                raw_html = raw_html[4:]
-        if raw_html.endswith("```"):
-            raw_html = "\n".join(raw_html.split("\n")[:-1])
+        # Robustly extract HTML to prevent blank pages from conversational filler
+        html_match = re.search(r'```(?:html)?\s*(.*?)\s*```', raw_html, re.DOTALL | re.IGNORECASE)
+        if html_match:
+            raw_html = html_match.group(1).strip()
+        elif "<html" in raw_html.lower():
+            # Fallback if no markdown blocks but HTML tags exist
+            start_idx = raw_html.lower().find("<html")
+            end_idx = raw_html.lower().rfind("</html>")
+            if end_idx != -1:
+                raw_html = raw_html[start_idx:end_idx + 7].strip()
+        
         raw_html = raw_html.strip()
 
         # Inject the full JSON data so the dashboard works instantly
