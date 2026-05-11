@@ -883,7 +883,7 @@ Instructions:
 5. OUTPUT: ONLY a ```python ... ``` block for data analysis.
 """
         # Data query path
-        code_resp = groq_prompt(code_prompt)
+        code_resp = gemini_prompt(code_prompt)
         
         if '```python' not in code_resp.lower():
             _set_cached(ckey, code_resp.strip())
@@ -898,7 +898,7 @@ Instructions:
         exec_result = execute_pandas_code(dfs, code)
         
         final_prompt = f"User Question: {message}\nOutput: {exec_result}\nAnswer as NexBot."
-        insight = groq_prompt(final_prompt).strip()
+        insight = gemini_prompt(final_prompt).strip()
         
         _set_cached(ckey, insight)
         return jsonify({
@@ -912,7 +912,7 @@ Instructions:
 
 @app.route('/api/v1/analyze/stream', methods=['POST', 'OPTIONS'])
 def analyze_stream():
-    """Streaming SSE endpoint powered by Groq."""
+    """Streaming SSE endpoint powered by Gemini."""
     if request.method == 'OPTIONS': return '', 204
     user, err, code_err = verify_api_key()
     if err: return err, code_err
@@ -923,8 +923,8 @@ def analyze_stream():
     if not message: return jsonify({'success': False, 'error': 'message required'}), 400
 
     status = check_system_status()
-    if not status['groq_ready']:
-        def err_stream(): yield "data: " + json.dumps({'error': 'Groq not ready', 'done': True}) + "\n\n"
+    if not status['ready']:
+        def err_stream(): yield "data: " + json.dumps({'error': 'Gemini not ready', 'done': True}) + "\n\n"
         return Response(err_stream(), mimetype='text/event-stream')
 
     source = get_active_source(src_id) if src_id else None
@@ -957,7 +957,7 @@ Instructions:
 4. FORBIDDEN: NEVER use `pd.read_csv()`.
 5. OUTPUT: ONLY a ```python ... ``` block for data analysis.
 """
-            code_resp = groq_prompt(code_prompt)
+            code_resp = gemini_prompt(code_prompt)
             
             if '```python' not in code_resp.lower():
                 yield "data: " + json.dumps({'token': code_resp.strip(), 'done': False}) + "\n\n"
@@ -971,7 +971,7 @@ Instructions:
             
             final_p = f"User: {message}\nResult: {exec_res}\nExplain as NexBot."
             full_ans = []
-            for token in groq_stream(final_p):
+            for token in gemini_stream(final_p):
                 full_ans.append(token)
                 yield "data: " + json.dumps({'token': token, 'done': False}) + "\n\n"
             _set_cached(ckey, "".join(full_ans))
