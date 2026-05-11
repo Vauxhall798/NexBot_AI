@@ -281,8 +281,10 @@ def gemini_prompt(prompt: str, params: dict = None) -> str:
                     try:
                         from groq import Groq
                         client = Groq(api_key=groq_key)
+                        # Aggressive truncation for Groq free tier (6000 TPM limit)
+                        truncated_prompt = prompt[:12000] + "\n...[Truncated for fallback]..." if len(prompt) > 12000 else prompt
                         chat_completion = client.chat.completions.create(
-                            messages=[{"role": "user", "content": prompt}],
+                            messages=[{"role": "user", "content": truncated_prompt}],
                             model="llama-3.1-8b-instant",
                         )
                         return chat_completion.choices[0].message.content or ''
@@ -325,9 +327,10 @@ def gemini_stream(prompt: str, params: dict = None):
                     try:
                         from groq import Groq
                         client = Groq(api_key=groq_key)
+                        truncated_prompt = prompt[:20000] + "\n...[Truncated for fallback]..." if len(prompt) > 20000 else prompt
                         completion = client.chat.completions.create(
                             model="llama-3.1-8b-instant",
-                            messages=[{"role": "user", "content": prompt}],
+                            messages=[{"role": "user", "content": truncated_prompt}],
                             stream=True,
                         )
                         for chunk in completion:
@@ -866,14 +869,14 @@ def analyze():
             schema_text = "\n\n".join(schema_info)
 
         # 2. Ask Gemini to write Python code or converse
-        code_prompt = f"""You are "NexBot", an elite Data Science & Analytics AI.
-We have the following pandas DataFrames loaded:
-{schema_text}
-
+        code_prompt = f"""You are "NexBot", an elite Data Science AI.
+ALL TABLES ARE ALREADY LOADED AS VARIABLES: {schema_text}
 User Input: {message}
 
 Instructions:
-1. ANALYSIS: If the user asks for insights, summaries, or questions about the data, ALWAYS write a Python script using pandas. Output ONLY a ```python ... ``` code block.
+1. DATA: Use table names directly (e.g. `df = TableName`). 
+2. FORBIDDEN: NEVER use `pd.read_csv()`. Data is in memory.
+3. OUTPUT: ONLY a ```python ... ``` block for data questions.
 """
         # Data query path
         code_resp = groq_prompt(code_prompt)
@@ -924,7 +927,15 @@ def analyze_stream():
             dfs = {s['name']: s['df'] for s in (([source] if source else list(DATA_SOURCES.values()))) if 'df' in s}
             schema_text = "\n".join([f"Table: {s['name']} (Cols: {list(s['schema'].keys())})" for s in (([source] if source else list(DATA_SOURCES.values())))])
             
-            code_prompt = f"User: {message}\nData: {schema_text}\nIf data question, output ONLY ```python ... ``` using pandas. Else converse."
+            code_prompt = f"""You are "NexBot", an elite Data Science AI.
+ALL TABLES ARE ALREADY LOADED AS VARIABLES: {schema_text}
+User Input: {message}
+
+Instructions:
+1. DATA: Use table names directly (e.g. `df = TableName`). 
+2. FORBIDDEN: NEVER use `pd.read_csv()`. Data is in memory.
+3. OUTPUT: ONLY a ```python ... ``` block for data questions.
+"""
             code_resp = groq_prompt(code_prompt)
             
             if '```python' not in code_resp.lower():
@@ -1331,6 +1342,11 @@ def preload_databases():
         pg_user     = os.getenv('PG_USER', 'postgres')
         pg_password = os.getenv('PG_PASSWORD', '')
         pg_schema   = os.getenv('PG_SCHEMA', 'public')
+
+        # Diagnostic: print masked password to verify env var loading
+        if pg_password:
+            masked = pg_password[0] + "*" * (len(pg_password)-2) + pg_password[-1] if len(pg_password) > 2 else "***"
+            print(f"🐘  Postgres: attempting connection with password: {masked}")
 
         if pg_host and pg_password:
             try:
