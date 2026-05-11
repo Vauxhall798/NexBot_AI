@@ -289,6 +289,7 @@ def gemini_prompt(prompt: str, params: dict = None) -> str:
                         chat_completion = client.chat.completions.create(
                             messages=[{"role": "user", "content": truncated_prompt}],
                             model="llama-3.1-8b-instant",
+                            max_tokens=8000
                         )
                         return chat_completion.choices[0].message.content or ''
                     except Exception as groq_e:
