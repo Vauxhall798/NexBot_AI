@@ -65,9 +65,6 @@ CORS(app, resources={
 })
 
 # ── Config ───────────────────────────────────────────────────────────────────
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-GROQ_MODEL   = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
-GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'qwen/qwen3-32b')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
@@ -79,10 +76,6 @@ CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
 # Set this in your .env file. Anyone who knows this password can self-register.
 ADMIN_PASSWORD   = os.getenv('NEXBOT_ADMIN_PASSWORD', 'changeme_super_secret')
 LICENSE_DB_PATH  = os.getenv('LICENSE_DB_PATH', 'data/licenses.db')
-
-# Groq generation params
-GROQ_PARAMS_FAST = {'temperature': 0.3, 'max_tokens': 2000,  'top_p': 0.8}
-GROQ_PARAMS_DASH = {'temperature': 0.2, 'max_tokens': 4000, 'top_p': 0.8}
 
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
@@ -249,12 +242,7 @@ def verify_api_key():
     return user, None, None
 
 
-def _groq_client():
-    """Return a configured Groq client (lazy import)."""
-    from groq import Groq
-    return Groq(api_key=GROQ_API_KEY)
-
-def gemini_prompt(prompt: str) -> str:
+def gemini_prompt(prompt: str, params: dict = None) -> str:
     """Non-streaming Gemini API call using massive context limits."""
     if not GEMINI_AVAILABLE:
         raise Exception("google-generativeai package not installed.")
@@ -268,70 +256,27 @@ def gemini_prompt(prompt: str) -> str:
     except Exception as e:
         raise Exception(f"Gemini API error: {e}")
 
-
-FALLBACK_GROQ_MODEL = 'llama-3.1-8b-instant'
-
-def groq_prompt(prompt: str, params: dict = None, model: str = None) -> str:
-    """Non-streaming Groq call — returns full response string."""
-    p = params or GROQ_PARAMS_FAST
-    client = _groq_client()
-    target_model = model or GROQ_MODEL
+def gemini_stream(prompt: str, params: dict = None):
+    """Generator that yields text tokens from Gemini streaming API."""
+    if not GEMINI_AVAILABLE:
+        raise Exception("google-generativeai package not installed.")
+    if not GEMINI_API_KEY:
+        raise Exception("GEMINI_API_KEY not configured.")
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel(GEMINI_MODEL)
     try:
-        completion = client.chat.completions.create(
-            model=target_model,
-            messages=[{'role': 'user', 'content': prompt}],
-            **p
-        )
-        return completion.choices[0].message.content or ''
+        response = model.generate_content(prompt, stream=True)
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
     except Exception as e:
-        if '429' in str(e) or 'rate limit' in str(e).lower():
-            print(f"Rate limit hit on {target_model}, falling back to {FALLBACK_GROQ_MODEL}...")
-            try:
-                completion = client.chat.completions.create(
-                    model=FALLBACK_GROQ_MODEL,
-                    messages=[{'role': 'user', 'content': prompt}],
-                    **p
-                )
-                return completion.choices[0].message.content or ''
-            except Exception as inner_e:
-                raise Exception(f"Groq API error (and fallback failed): {inner_e}")
-        raise Exception(f"Groq API error: {e}")
+        yield f"\n[Gemini API Error: {e}]"
 
-
-def groq_stream(prompt: str, params: dict = None):
-    """Generator that yields text tokens from Groq streaming API."""
-    p = params or GROQ_PARAMS_FAST
-    client = _groq_client()
-    try:
-        stream = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{'role': 'user', 'content': prompt}],
-            stream=True,
-            **p
-        )
-    except Exception as e:
-        if '429' in str(e) or 'rate limit' in str(e).lower():
-            print(f"Rate limit hit on {GROQ_MODEL}, falling back to {FALLBACK_GROQ_MODEL}...")
-            stream = client.chat.completions.create(
-                model=FALLBACK_GROQ_MODEL,
-                messages=[{'role': 'user', 'content': prompt}],
-                stream=True,
-                **p
-            )
-        else:
-            raise
-            
-    for chunk in stream:
-        token = chunk.choices[0].delta.content or ''
-        if token:
-            yield token
-
-
-def check_groq_status() -> dict:
-    """Verify the Groq API key is set and reachable."""
-    if not GROQ_API_KEY:
-        return {'ready': False, 'error': 'GROQ_API_KEY not set in .env'}
-    return {'ready': True, 'model': GROQ_MODEL}
+def check_gemini_status() -> dict:
+    """Verify the Gemini API key is set and reachable."""
+    if not GEMINI_API_KEY:
+        return {'ready': False, 'error': 'GEMINI_API_KEY not set in .env'}
+    return {'ready': True, 'model': GEMINI_MODEL}
 
 
 def _cache_key(message: str, source_id: Optional[str]) -> str:
@@ -403,7 +348,7 @@ def data_to_text(source: dict) -> str:
         
     result_text = "\n".join(lines) + f"\n\n({source['record_count']} total rows)"
     
-    # Hard cap length to avoid 400 errors from Groq API
+    # Hard cap length to avoid 400 errors from Gemini API
     if len(result_text) > 4000:
         result_text = result_text[:4000] + "\n...[truncated due to length]..."
         
@@ -450,7 +395,7 @@ def execute_pandas_code(dfs: dict, code: str) -> str:
         if not result:
             return "Code executed successfully but produced no output."
         
-        # Protect against massive outputs triggering Groq 413 Rate Limit (Max ~12,000 TPM)
+        # Protect against massive outputs triggering Gemini Rate Limit
         if len(result) > 4000:
             result = result[:4000] + "\n...[Output truncated due to excessive length. The data was too large to print fully.]..."
             
@@ -464,11 +409,11 @@ def execute_pandas_code(dfs: dict, code: str) -> str:
 def health():
     return jsonify({
         'status': 'healthy',
-        'model': GROQ_MODEL,
+        'model': GEMINI_MODEL,
         'data_sources': len(DATA_SOURCES),
         'sql_status': SQL_ERROR,
         'pg_status': PG_ERROR,
-        'service': 'AI Data Chatbot API (Groq)',
+        'service': 'AI Data Chatbot API (Gemini)',
         'timestamp': datetime.now().isoformat()
     })
 
@@ -755,9 +700,9 @@ def analyze():
     if not message:
         return jsonify({'success': False, 'error': 'message is required'}), 400
 
-    status = check_groq_status()
+    status = check_gemini_status()
     if not status['ready']:
-        return jsonify({'success': False, 'error': status.get('error', 'Groq not ready'),
+        return jsonify({'success': False, 'error': status.get('error', 'Gemini not ready'),
                         'insight': 'Check your GROQ_API_KEY in .env'}), 503
 
     if src_id:
@@ -794,7 +739,7 @@ def analyze():
         else:
             schema_text = "\n\n".join(schema_info)
 
-        # 2. Ask Groq to write Python code or converse
+        # 2. Ask Gemini to write Python code or converse
         code_prompt = f"""You are an elite Data Analyst AI. 
 We have the following pandas DataFrames loaded into variables:
 {schema_text}
@@ -808,7 +753,7 @@ Instructions:
 4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
 5. IMPORTANT: If the user says hello, makes a conversational comment, or asks a general question unrelated to the data, ALWAYS respond naturally, greet them friendly, and answer their general question directly, even if no data is loaded! DO NOT write python code for this."""
 
-        code_resp = groq_prompt(code_prompt, params={'temperature': 0.1, 'max_tokens': 1000})
+        code_resp = gemini_prompt(code_prompt)
         is_code = '```python' in code_resp.lower()
         
         if not is_code:
@@ -842,7 +787,7 @@ We executed an internal python script on the database to get the exact answer. T
 
 Provide a natural, clear, and descriptive answer to the user based on this output. If it's an error, politely explain that the data couldn't be processed."""
 
-        insight = groq_prompt(final_prompt, params=GROQ_PARAMS_FAST).strip()
+        insight = gemini_prompt(final_prompt).strip()
         _set_cached(ckey, insight)
         return jsonify({
             'success':   True,
@@ -873,10 +818,10 @@ def analyze_stream():
     if not message:
         return jsonify({'success': False, 'error': 'message is required'}), 400
 
-    status = check_groq_status()
+    status = check_gemini_status()
     if not status['ready']:
         def err_stream():
-            yield f"data: {json.dumps({'error': status.get('error','Groq not ready'), 'done': True})}\n\n"
+            yield f"data: {json.dumps({'error': status.get('error','Gemini not ready'), 'done': True})}\n\n"
         return Response(err_stream(), mimetype='text/event-stream')
 
     if src_id:
@@ -913,7 +858,7 @@ def analyze_stream():
             else:
                 schema_text = "\\n\\n".join(schema_info)
 
-            # 2. Ask Groq to write Python code or converse
+            # 2. Ask Gemini to write Python code or converse
             code_prompt = f"""You are an elite Data Analyst AI. 
 We have the following pandas DataFrames loaded into variables:
 {schema_text}
@@ -927,7 +872,7 @@ Instructions:
 4. CRITICAL: Never use `.values[0]`, `.iloc[0]`, or access indexes directly without checking if the DataFrame is empty. If a filter returns no rows, accessing `[0]` will crash the program with an "out of bounds" error. Simply print the dataframe or series directly (e.g. `print(df['Col'].mode())`).
 5. IMPORTANT: If the user says hello, makes a conversational comment, or asks a general question unrelated to the data, ALWAYS respond naturally, greet them friendly, and answer their general question directly, even if no data is loaded! DO NOT write python code for this."""
 
-            code_resp = groq_prompt(code_prompt, params={'temperature': 0.1, 'max_tokens': 1000})
+            code_resp = gemini_prompt(code_prompt)
             is_code = '```python' in code_resp.lower()
             
             if not is_code:
@@ -961,7 +906,7 @@ We executed an internal python script on the database to get the exact answer. T
 Provide a natural, clear, and descriptive answer to the user based on this output. If it's an error, politely explain that the data couldn't be processed."""
 
             full = []
-            for token in groq_stream(final_prompt, params=GROQ_PARAMS_FAST):
+            for token in gemini_stream(final_prompt):
                 full.append(token)
                 token_msg = {'token': token, 'done': False}
                 yield f"data: {json.dumps(token_msg)}\n\n"
@@ -995,9 +940,9 @@ def generate_dashboard():
     src_id  = body.get('data_source_id')
     mode    = body.get('type', 'inbuilt')   # 'inbuilt' | 'download'
 
-    status = check_groq_status()
+    status = check_gemini_status()
     if not status['ready']:
-        return jsonify({'success': False, 'error': status.get('error', 'Groq not ready')}), 503
+        return jsonify({'success': False, 'error': status.get('error', 'Gemini not ready')}), 503
 
     if src_id:
         active = get_active_source(src_id)
@@ -1076,7 +1021,7 @@ Blueprint:"""
         if GEMINI_API_KEY and GEMINI_AVAILABLE:
             plan = gemini_prompt(planner_prompt).strip()
         else:
-            plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
+            plan = gemini_prompt(planner_prompt).strip()
             plan = re.sub(r'<think>.*?</think>', '', plan, flags=re.DOTALL).strip()
 
         # Check if the model returned a warning
@@ -1158,7 +1103,7 @@ Blueprint:"""
         if GEMINI_API_KEY and GEMINI_AVAILABLE:
             raw_html = gemini_prompt(generator_prompt).strip()
         else:
-            raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
+            raw_html = gemini_prompt(generator_prompt).strip()
             raw_html = re.sub(r'<think>.*?</think>', '', raw_html, flags=re.DOTALL).strip()
         
         # Strip any accidental markdown fences
@@ -1333,20 +1278,20 @@ preload_databases()
 # ── Startup ───────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     port   = int(os.getenv('PORT', 5000))
-    status = check_groq_status()
+    status = check_gemini_status()
 
     print("\n" + "=" * 60)
-    print("🤖  NexBot AI — Data Chatbot API (Groq)")
+    print("🤖  NexBot AI — Data Chatbot API (Gemini)")
     print("=" * 60)
     print(f"📍  Port        : {port}")
-    print(f"🧠  Model       : {GROQ_MODEL}")
-    print(f"🔑  Groq Key    : {'✅ set' if GROQ_API_KEY else '❌ missing — add GROQ_API_KEY to .env'}")
+    print(f"🧠  Model       : {GEMINI_MODEL}")
+    print(f"🔑  Gemini Key  : {'✅ set' if GEMINI_API_KEY else '❌ missing — add GEMINI_API_KEY to .env'}")
     print(f"📦  pandas      : {'✅' if PANDAS_AVAILABLE else '❌ (install pandas)'}")
     print(f"🔐  bcrypt      : {'✅' if BCRYPT_AVAILABLE else '⚠️  optional (password hashing)'}")
     print(f"🐘  psycopg2    : {'✅' if POSTGRES_AVAILABLE else '⚠️  optional'}")
     print(f"🐬  pymysql     : {'✅' if MYSQL_AVAILABLE else '⚠️  optional'}")
     print(f"🗄️  pymssql     : {'✅' if PYMSSQL_AVAILABLE else '⚠️  optional (SQL Server)'}")
-    print(f"{'✅  Groq ready — no warm-up needed!' if status['ready'] else '❌  ' + status.get('error','')}")
+    print(f"{'✅  Gemini ready!' if status['ready'] else '❌  ' + status.get('error','')}")
     print("─" * 60)
     print(f"🔌  Plugin Reg  : POST /api/v1/register (password-protected)")
     print(f"🗃️  License DB  : {LICENSE_DB_PATH}")
