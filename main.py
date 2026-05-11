@@ -249,11 +249,21 @@ def gemini_prompt(prompt: str, params: dict = None) -> str:
     if not GEMINI_API_KEY:
         raise Exception("GEMINI_API_KEY not configured.")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+    
     try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
         response = model.generate_content(prompt)
         return response.text or ''
     except Exception as e:
+        error_str = str(e).lower()
+        if '429' in error_str or 'quota' in error_str or 'rate' in error_str:
+            print(f"[API FALLBACK] 429 Rate Limit Hit on {GEMINI_MODEL}. Falling back to gemini-1.5-flash-8b...")
+            fallback_model = genai.GenerativeModel('gemini-1.5-flash-8b')
+            try:
+                response = fallback_model.generate_content(prompt)
+                return response.text or ''
+            except Exception as fallback_e:
+                raise Exception(f"Gemini API (and Fallback) error: {fallback_e}")
         raise Exception(f"Gemini API error: {e}")
 
 def gemini_stream(prompt: str, params: dict = None):
@@ -263,14 +273,27 @@ def gemini_stream(prompt: str, params: dict = None):
     if not GEMINI_API_KEY:
         raise Exception("GEMINI_API_KEY not configured.")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+    
     try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
         response = model.generate_content(prompt, stream=True)
         for chunk in response:
             if chunk.text:
                 yield chunk.text
     except Exception as e:
-        yield f"\n[Gemini API Error: {e}]"
+        error_str = str(e).lower()
+        if '429' in error_str or 'quota' in error_str or 'rate' in error_str:
+            print(f"[API FALLBACK] 429 Rate Limit Hit on {GEMINI_MODEL}. Falling back to gemini-1.5-flash-8b...")
+            fallback_model = genai.GenerativeModel('gemini-1.5-flash-8b')
+            try:
+                response = fallback_model.generate_content(prompt, stream=True)
+                for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
+            except Exception as fallback_e:
+                yield f"\n[Gemini Fallback Error: {fallback_e}]"
+        else:
+            yield f"\n[Gemini API Error: {e}]"
 
 def check_gemini_status() -> dict:
     """Verify the Gemini API key is set and reachable."""
