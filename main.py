@@ -1082,14 +1082,15 @@ Blueprint:"""
             "- Radar, Pie, Doughnut, Scatter, Bubble, Line — native Chart.js types.\n\n"
             "EXECUTIVE UI/UX & CSS RULES:\n"
             "1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.\n"
-            "2. ONLY internal style blocks. Import Google Fonts Inter (wght 300;400;500;600;700).\n"
-            "3. Layout: Clean, full-width executive layout. `body` { padding: 40px; margin: 0; background: #f8fafc; font-family: 'Inter', sans-serif; min-height: 100vh; color: #1e293b; }\n"
-            "4. Container: Wrap content in a container with `max-width: 1400px; margin: 0 auto;`.\n"
-            "5. Dashboard header: Professional h1, subtitle in #64748b.\n"
-            "6. KPI row: CSS grid repeat(auto-fit, minmax(240px, 1fr)) gap 24px. Cards: bg #fff, border 1px solid #e2e8f0, border-radius 16px, padding 24px, shadow-sm.\n"
-            "8. Chart cards: Same styling as KPI cards. Ensure chart containers have a fixed height (e.g. `height: 320px; position: relative;`).\n"
-            "9. COLORS (CRITICAL): You MUST declare `const CHART_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];` globally. You MUST map this exact array to the `backgroundColor` and `borderColor` of EVERY single chart dataset (Bar, Pie, Line, Scatter, etc.). NEVER use black bars or monochromatic grey fills.\n"
-            "10. Add a nicely styled `#data-table-container` div at the bottom of the dashboard (hidden by default) with a clean CSS table for displaying raw underlying data.\n\n"
+            "2. ONLY internal style blocks. Import Google Fonts Inter (wght 300;400;500;600;700;800).\n"
+            "3. STUNNING VIBRANT DARK MODE: `body` MUST be `background: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; padding: 40px; margin: 0; min-height: 100vh;`\n"
+            "4. DASHBOARD HEADER: Make the main `h1` incredibly vibrant using a gradient: `background: linear-gradient(to right, #38bdf8, #818cf8, #e879f9); -webkit-background-clip: text; color: transparent; font-weight: 800; font-size: 2.5rem;`\n"
+            "5. CARDS (Glassmorphism): ALL cards (KPIs and Charts) MUST use `background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);`\n"
+            "6. KPI GRID: `display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px;`\n"
+            "7. MASSIVE CHART GRID (CRITICAL FOR READABILITY): Charts MUST NOT be squished! Wrap chart cards in a container with `display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 40px;`. This ensures a maximum of 2 massive charts per row!\n"
+            "8. CHART CANVAS HEIGHT: Ensure the `div` wrapping each `<canvas>` has `height: 450px; position: relative; margin-top: 20px;` so charts are huge and breathable.\n"
+            "9. COLORS (CRITICAL): You MUST declare `const CHART_COLORS = ['#38bdf8', '#34d399', '#fb7185', '#fbbf24', '#c084fc', '#2dd4bf', '#f472b6', '#a3e635'];` globally. You MUST map this exact array to the `backgroundColor` and `borderColor` of EVERY single chart dataset (Bar, Pie, Line, Scatter, etc.). NEVER use black bars or monochromatic grey fills.\n"
+            "10. Add a nicely styled `#data-table-container` div at the bottom of the dashboard (hidden by default) with a clean CSS table for displaying raw underlying data. Style the table for Dark Mode (bg #1e293b, borders #334155).\n\n"
             "EXECUTIVE JAVASCRIPT LOGIC (CRITICAL):\n"
             "1. INSIGHTS: The 'Dynamic Executive Summary' MUST identify the highest performing category/product, note major trends, and provide a strategic recommendation.\n"
             "2. FORMATTING: Use `Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })` to format large numbers (e.g. 1.8M instead of 1862300).\n"
@@ -1128,9 +1129,10 @@ window.dashboardData = {full_json};
 // Auto-injected Global Chart.js Vibrant Colors Hook
 document.addEventListener("DOMContentLoaded", function() {{
     if (typeof Chart !== 'undefined') {{
-        Chart.defaults.color = '#475569';
+        Chart.defaults.color = '#cbd5e1';
+        Chart.defaults.scale.grid.color = '#334155';
         Chart.defaults.font.family = 'Inter, sans-serif';
-        const VIBRANT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#14b8a6', '#8b5cf6'];
+        const VIBRANT_COLORS = ['#38bdf8', '#34d399', '#fb7185', '#fbbf24', '#c084fc', '#2dd4bf', '#f472b6', '#a3e635', '#22d3ee', '#818cf8'];
         
         Chart.register({{
             id: 'forceVibrantColors',
@@ -1140,12 +1142,13 @@ document.addEventListener("DOMContentLoaded", function() {{
                     if (!dataset.backgroundColor || typeof dataset.backgroundColor === 'string') {{
                         if (['pie', 'doughnut', 'bar', 'polarArea'].includes(chart.config.type) || dataset.type === 'bar') {{
                             dataset.backgroundColor = VIBRANT_COLORS;
-                            dataset.borderColor = '#ffffff';
-                            dataset.borderWidth = 1;
+                            dataset.borderColor = '#1e293b';
+                            dataset.borderWidth = 2;
                         }} else {{
                             dataset.backgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
                             dataset.borderColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
                             dataset.pointBackgroundColor = VIBRANT_COLORS[i % VIBRANT_COLORS.length];
+                            dataset.pointBorderColor = '#1e293b';
                             dataset.pointRadius = 5;
                             dataset.pointHoverRadius = 7;
                         }}
