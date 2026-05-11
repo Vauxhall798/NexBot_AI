@@ -902,7 +902,7 @@ Instructions:
 2. NO HALLUCINATIONS: If the table the user wants is NOT in the list above, do NOT guess. Tell the user you can only see the tables listed.
 3. CONNECTION ERROR: If the list above says "CRITICAL ERROR", do NOT write code. Tell the user to fix their database password in the Render dashboard.
 4. FORBIDDEN: NEVER use `pd.read_csv()`.
-5. OUTPUT: ONLY a ```python ... ``` block for data analysis.
+5. CASUAL CHAT: If the user says hello, greets you, or asks a non-data question, just reply naturally and conversationally without code. ONLY output a ```python ... ``` block if they are explicitly asking to analyze data.
 """
         # Data query path
         code_resp = ai_prompt(code_prompt)
@@ -974,11 +974,11 @@ User Input: {message}
 
 Instructions:
 1. DATA: Use table names directly (e.g. `df = SalesData`). 
-2. EXACT COLUMNS (CRITICAL): You MUST strictly use ONLY the exact column names listed in the schema above. NEVER invent or hallucinate column names (e.g. do not use 'dept_name' if it is not explicitly listed).
+2. EXACT COLUMNS (CRITICAL): You MUST strictly use ONLY the exact column names listed in the schema above. NEVER invent or hallucinate column names.
 3. NO HALLUCINATIONS: If the table the user wants is NOT in the list above, do NOT guess. Tell them what you CAN see.
 4. CONNECTION ERROR: If the list says "CRITICAL ERROR", do NOT write code. Tell the user their database connection is failing.
 5. FORBIDDEN: NEVER use `pd.read_csv()`.
-6. OUTPUT: ONLY a ```python ... ``` block for data analysis.
+6. CASUAL CHAT: If the user says hello, greets you, or asks a non-data question, just reply naturally and conversationally without code. ONLY output a ```python ... ``` block if they are explicitly asking to analyze data.
 """
             code_resp = ai_prompt(code_prompt)
             
@@ -1187,7 +1187,8 @@ Blueprint:"""
             "5. NO HTML CHARTS: ALL charts MUST be drawn using Chart.js `<canvas>`. NEVER draw charts using raw HTML `<div>` elements with dynamic heights, as they cause massive overflow bugs.\n"
             "6. CHART OPTIONS: Always pass `options: { responsive: true, maintainAspectRatio: false }` to Chart.js.\n"
             "7. KPI BADGES: Must contain actual text (e.g., '▲ 12.4%'). Style them with soft background pills. CRITICAL: NEVER output blue dots, placeholder character sparklines (like '....'), or any other junk symbols inside the cards.\n"
-            "8. INTERACTIVE FEATURES: \n"
+            "8. CHART.JS FIX: Wrap all chart initializations inside a robust loader. Example: `window.addEventListener('DOMContentLoaded', () => { function init() { if(typeof Chart === 'undefined') { setTimeout(init, 50); return; } try { new Chart(document.getElementById('myChart'), {type: 'bar', data: ...}); } catch(e) { console.error(e); } } init(); });`. Do NOT call `.getContext('2d')` if passing an ID.\n"
+            "9. INTERACTIVE FEATURES: \n"
             "   - Implement `window.removeCard(btn)` function: `btn.closest('.card').remove();`.\n"
             "   - Implement `window.exportToHTML()` function: Create a Blob from `document.documentElement.outerHTML`, generate a URL, and trigger a download of 'NexBot_Dashboard.html'. \n"
             "HTML:"
