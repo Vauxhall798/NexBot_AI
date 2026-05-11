@@ -515,6 +515,18 @@ def execute_pandas_code(dfs: dict, code: str) -> str:
     import numpy as np
     namespace = {'pd': pd, 'np': np, '__builtins__': __builtins__}
     namespace.update(dfs)          # e.g. ItineraryMaster=df, VendorMaster=df
+    
+    # Inject resilient aliases to prevent NameErrors from minor AI hallucinations
+    for name, df in dfs.items():
+        safe_name = name.lower()
+        namespace[safe_name] = df
+        namespace[name.capitalize()] = df
+        namespace[name.title().replace(" ", "")] = df
+        namespace[name.replace(" ", "")] = df
+        namespace[name.replace("_", "")] = df
+        # Also try to catch pure camelCase/PascalCase
+        namespace[safe_name.replace("_", "").replace(" ", "")] = df
+
     output = io.StringIO()
     try:
         with contextlib.redirect_stdout(output):
