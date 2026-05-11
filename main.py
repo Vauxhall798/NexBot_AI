@@ -366,6 +366,8 @@ def groq_prompt(prompt: str) -> str:
         completion = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model=GROQ_MODEL,
+            max_tokens=4096,
+            temperature=0.1
         )
         return completion.choices[0].message.content or ''
     except Exception as e:
@@ -481,9 +483,19 @@ def get_all_sources_text() -> str:
     return combined
 
 def extract_python_code(text: str) -> str:
+    # 1. Try to find a standard closed block
     match = re.search(r'```python\s*(.*?)\s*```', text, re.DOTALL)
     if match:
-        return match.group(1)
+        return match.group(1).strip()
+    
+    # 2. If no closed block, look for an open block (AI might have forgotten to close it)
+    if '```python' in text.lower():
+        parts = re.split(r'```python', text, flags=re.IGNORECASE)
+        if len(parts) > 1:
+            # Take everything after the first ```python
+            return parts[1].strip().split('```')[0].strip()
+            
+    # 3. Fallback: return as-is
     return text.strip()
 
 def execute_pandas_code(dfs: dict, code: str) -> str:
