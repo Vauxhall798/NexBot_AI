@@ -61,7 +61,7 @@ CORS(app, resources={
 # ── Config ───────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL   = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
-GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'qwen-2.5-coder-32b')
+GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'deepseek-r1-distill-llama-70b')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -1045,7 +1045,8 @@ User request: {message}
 Blueprint:"""
 
     try:
-        plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_FAST, model=GROQ_DASHBOARD_MODEL).strip()
+        plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
+        plan = re.sub(r'<think>.*?</think>', '', plan, flags=re.DOTALL).strip()
 
         # Check if the model returned a warning
         if plan.upper().startswith("WARNING:"):
@@ -1124,6 +1125,7 @@ Blueprint:"""
         )
 
         raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
+        raw_html = re.sub(r'<think>.*?</think>', '', raw_html, flags=re.DOTALL).strip()
         
         # Strip any accidental markdown fences
         if raw_html.startswith("```"):
