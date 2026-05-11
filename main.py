@@ -1006,7 +1006,8 @@ Output a detailed blueprint with:
    - x_column: exact column name for labels/x-axis
    - y_column: exact column name(s) for values/y-axis (comma-separated if multiple)
    - description: brief note on what insight this reveals
-4. Styling: Dark premium aesthetic — background #0a0f1e, cards #111827, accent colors from [#6366f1, #ec4899, #10b981, #f59e0b, #3b82f6], glassmorphism panels, rounded corners, smooth hover effects.
+4. Styling: Modern light premium aesthetic — background #f8fafc, sidebar #111827, cards #ffffff with subtle shadows, accent colors from [#6366f1, #10b981, #f43f5e], rounded corners.
+5. Intelligent Features: Plan a layout with a Sidebar navigation, KPI trend badges, Predictive/Anomaly detection spaces, and Dynamic Summary text.
 
 Data sample:
 {data_text}
@@ -1077,24 +1078,18 @@ Blueprint:"""
             "1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.\n"
             "2. ONLY internal style blocks. No external CSS links except Google Fonts and CDN scripts.\n"
             "3. Import Google Fonts Inter from fonts.googleapis.com (wght 300;400;500;600;700;800).\n"
-            "4. body: font-family Inter; margin 0; padding 24px; "
-            "background linear-gradient(135deg,#0a0f1e,#111827); min-height 100vh; color #f1f5f9.\n"
-            "5. Dashboard header: centered h1 with gradient text "
-            "(linear-gradient(135deg,#6366f1,#ec4899) clipped to text), subtitle in #64748b.\n"
-            "6. KPI row: CSS grid repeat(auto-fit,minmax(200px,1fr)) gap 16px.\n"
-            "7. KPI cards: background rgba(17,24,39,0.8); backdrop-filter blur(12px); "
-            "border 1px solid rgba(255,255,255,0.07); border-radius 16px; "
-            "padding 20px 24px; box-shadow 0 8px 32px rgba(0,0,0,0.4).\n"
-            "8. KPI icon: 40x40px gradient rounded square. Value: 1.8rem bold. Label: 0.8rem #64748b uppercase.\n"
-            "9. Charts grid: CSS grid repeat(auto-fit,minmax(420px,1fr)) gap 20px.\n"
-            "10. Chart cards: same glassmorphism as KPI. transition transform 0.3s ease. "
-            "hover: translateY(-4px) + box-shadow 0 16px 48px rgba(99,102,241,0.15) + "
-            "border-color rgba(99,102,241,0.3).\n"
+            "4. Layout: Implement a modern sidebar layout. body: display flex; margin 0; background #f8fafc; font-family Inter; min-height 100vh; color #1e293b.\n"
+            "5. Sidebar: width 260px; background #111827; color white; padding 24px; display flex; flex-direction column. Include dummy nav links.\n"
+            "6. Main Content: flex 1; padding 32px; overflow-y auto.\n"
+            "7. Dashboard header: h1 color #0f172a, subtitle #64748b. Include a 'Dynamic Context/Summary' card at the top interpreting the data.\n"
+            "8. KPI row: CSS grid repeat(auto-fit,minmax(200px,1fr)) gap 24px. KPI cards: background #fff; border 1px solid #e2e8f0; border-radius 16px; padding 24px; box-shadow 0 4px 6px -1px rgba(0,0,0,0.05).\n"
+            "9. KPI contents: Add positive/negative trend badges (e.g. +14% or -8%) next to the values dynamically if possible.\n"
+            "10. Charts grid: CSS grid repeat(auto-fit,minmax(420px,1fr)) gap 24px. Chart cards: background #fff; border-radius 16px; padding 24px; box-shadow 0 4px 6px -1px rgba(0,0,0,0.05).\n"
             "11. Chart canvas: max-height 320px.\n"
-            "12. Chart.js global defaults: Chart.defaults.color = #94a3b8; "
-            "Chart.defaults.borderColor = rgba(255,255,255,0.05).\n"
-            "13. KPI numbers: animate with requestAnimationFrame count-up from 0 to target over 1200ms.\n"
-            "14. Accent palette: #6366f1, #ec4899, #10b981, #f59e0b, #3b82f6 — use for dataset borders and fills.\n"
+            "12. Chart.js global defaults: Chart.defaults.color = #64748b; Chart.defaults.borderColor = #f1f5f9; Chart.defaults.font.family = 'Inter'.\n"
+            "13. Intelligent Features: If possible, add anomaly detection logic in JS (e.g., color line segments red if sudden drop) and predictive lines (dashed).\n"
+            "14. KPI numbers: animate with requestAnimationFrame count-up from 0 to target over 1200ms.\n"
+            "15. Accent palette: #6366f1, #10b981, #f43f5e, #f59e0b, #3b82f6 — use for dataset borders and fills.\n"
             "HTML:"
         )
 
