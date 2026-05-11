@@ -884,6 +884,16 @@ Instructions:
 """
         # Data query path
         code_resp = groq_prompt(code_prompt)
+        
+        if '```python' not in code_resp.lower():
+            _set_cached(ckey, code_resp.strip())
+            return jsonify({
+                'success': True, 'insight': code_resp.strip(), 'cached': False,
+                'source_id': source['id'] if source else None,
+                'timestamp': datetime.now().isoformat(),
+                'usage': {'current': 1, 'limit': user['limit'], 'remaining': user['limit'] - 1},
+            })
+
         code = extract_python_code(code_resp)
         exec_result = execute_pandas_code(dfs, code)
         
