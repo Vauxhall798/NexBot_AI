@@ -864,19 +864,23 @@ def analyze():
         for s in sources_to_use:
             schema_info.append(f"Table name: {s['name']}\nColumns: {list(s['schema'].keys())}")
         if not schema_info:
-            schema_text = "No data sources are currently loaded."
+            schema_text = "⚠️ CRITICAL ERROR: NO DATA SOURCES ARE LOADED. THE DATABASE CONNECTION IS FAILING (Check your password in Render)."
         else:
             schema_text = "\n\n".join(schema_info)
 
-        # 2. Ask Gemini to write Python code or converse
+        # 2. Ask AI to write Python code or converse
         code_prompt = f"""You are "NexBot", an elite Data Science AI.
-ALL TABLES ARE ALREADY LOADED AS VARIABLES: {schema_text}
+ALL DATA IS PRE-LOADED. Available Tables:
+{schema_text}
+
 User Input: {message}
 
 Instructions:
-1. DATA: Use table names directly (e.g. `df = TableName`). 
-2. FORBIDDEN: NEVER use `pd.read_csv()`. Data is in memory.
-3. OUTPUT: ONLY a ```python ... ``` block for data questions.
+1. DATA: Use table names directly (e.g. `df = SalesData`). 
+2. NO HALLUCINATIONS: If the table the user wants is NOT in the list above, do NOT guess. Tell the user you can only see the tables listed.
+3. CONNECTION ERROR: If the list above says "CRITICAL ERROR", do NOT write code. Tell the user to fix their database password in the Render dashboard.
+4. FORBIDDEN: NEVER use `pd.read_csv()`.
+5. OUTPUT: ONLY a ```python ... ``` block for data analysis.
 """
         # Data query path
         code_resp = groq_prompt(code_prompt)
@@ -925,16 +929,23 @@ def analyze_stream():
     def generate():
         try:
             dfs = {s['name']: s['df'] for s in (([source] if source else list(DATA_SOURCES.values()))) if 'df' in s}
-            schema_text = "\n".join([f"Table: {s['name']} (Cols: {list(s['schema'].keys())})" for s in (([source] if source else list(DATA_SOURCES.values())))])
+            if not DATA_SOURCES:
+                schema_text = "⚠️ CRITICAL ERROR: NO DATA SOURCES ARE LOADED. THE DATABASE CONNECTION IS FAILING."
+            else:
+                schema_text = "\n".join([f"Table: {s['name']} (Cols: {list(s['schema'].keys())})" for s in (([source] if source else list(DATA_SOURCES.values())))])
             
             code_prompt = f"""You are "NexBot", an elite Data Science AI.
-ALL TABLES ARE ALREADY LOADED AS VARIABLES: {schema_text}
+ALL DATA IS PRE-LOADED. Available Tables:
+{schema_text}
+
 User Input: {message}
 
 Instructions:
-1. DATA: Use table names directly (e.g. `df = TableName`). 
-2. FORBIDDEN: NEVER use `pd.read_csv()`. Data is in memory.
-3. OUTPUT: ONLY a ```python ... ``` block for data questions.
+1. DATA: Use table names directly (e.g. `df = SalesData`). 
+2. NO HALLUCINATIONS: If the table the user wants is NOT in the list above, do NOT guess. Tell them what you CAN see.
+3. CONNECTION ERROR: If the list says "CRITICAL ERROR", do NOT write code. Tell the user their database connection is failing.
+4. FORBIDDEN: NEVER use `pd.read_csv()`.
+5. OUTPUT: ONLY a ```python ... ``` block for data analysis.
 """
             code_resp = groq_prompt(code_prompt)
             
