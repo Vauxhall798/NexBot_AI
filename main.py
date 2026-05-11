@@ -73,7 +73,7 @@ LICENSE_DB_PATH  = os.getenv('LICENSE_DB_PATH', 'data/licenses.db')
 
 # Groq generation params
 GROQ_PARAMS_FAST = {'temperature': 0.3, 'max_tokens': 2000,  'top_p': 0.8}
-GROQ_PARAMS_DASH = {'temperature': 0.2, 'max_tokens': 8000, 'top_p': 0.8}
+GROQ_PARAMS_DASH = {'temperature': 0.2, 'max_tokens': 6500, 'top_p': 0.8}
 
 ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
@@ -369,9 +369,9 @@ def get_all_sources_text() -> str:
         texts.append(f"Table: {s['name']}\n{data_to_text(s)}")
     combined = "\n\n".join(texts)
     
-    # Cap total combined length to ~25,000 chars to fit in token limits safely
-    if len(combined) > 25000:
-        combined = combined[:25000] + "\n...[truncated due to length]..."
+    # Cap total combined length to ~12,000 chars to fit in strict 12k TPM Groq limits
+    if len(combined) > 12000:
+        combined = combined[:12000] + "\n...[truncated due to length]..."
     return combined
 
 def extract_python_code(text: str) -> str:
