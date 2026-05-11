@@ -71,8 +71,8 @@ CORS(app, resources={
 })
 
 # ── Config ───────────────────────────────────────────────────────────────────
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
-OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openrouter/free')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -251,121 +251,53 @@ def verify_api_key():
 
 
 def ai_prompt(prompt: str, params: dict = None) -> str:
-    """Non-streaming OpenRouter API call with auto-fallback."""
-    if not OPENROUTER_API_KEY:
-        raise Exception("OPENROUTER_API_KEY not configured. Please add it to your .env file.")
+    """Non-streaming Gemini API call."""
+    if not GEMINI_AVAILABLE:
+        raise Exception("google-generativeai package not installed.")
+    if not GEMINI_API_KEY:
+        raise Exception("GEMINI_API_KEY not configured. Please add it to your .env file.")
     
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    genai.configure(api_key=GEMINI_API_KEY)
+    config = genai.types.GenerationConfig(max_output_tokens=8192, temperature=0.1)
     
-    data = {
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1
-    }
-    
-    models_to_try = [
-        OPENROUTER_MODEL,
-        "openrouter/free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "liquid/lfm-2.5-1.2b-instruct:free"
-    ]
-    
-    # Remove duplicates while preserving order
-    models_to_try = list(dict.fromkeys(models_to_try))
-    
-    last_error = None
-    for model_name in models_to_try:
-        data["model"] = model_name
-        try:
-            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-            response.raise_for_status()
-            return response.json()['choices'][0]['message']['content'] or ''
-        except Exception as e:
-            error_msg = str(e)
-            if hasattr(e, 'response') and e.response is not None:
-                error_msg = e.response.text
-            
-            if "429" in error_msg or "rate" in error_msg.lower():
-                print(f"[OpenRouter Fallback] {model_name} rate-limited. Trying next...")
-                last_error = error_msg
-                continue
-            raise Exception(f"OpenRouter API error on {model_name}: {error_msg}")
-            
-    raise Exception(f"All OpenRouter Free models exhausted! Last error: {last_error}")
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(prompt, generation_config=config)
+        return response.text or ''
+    except Exception as e:
+        raise Exception(f"Gemini API error: {e}")
 
 def ai_stream(prompt: str, params: dict = None):
-    """Generator that yields text tokens from OpenRouter streaming API with fallback."""
-    if not OPENROUTER_API_KEY:
-        raise Exception("OPENROUTER_API_KEY not configured. Please add it to your .env file.")
+    """Generator that yields text tokens from Gemini streaming API."""
+    if not GEMINI_AVAILABLE:
+        raise Exception("google-generativeai package not installed.")
+    if not GEMINI_API_KEY:
+        raise Exception("GEMINI_API_KEY not configured. Please add it to your .env file.")
         
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    genai.configure(api_key=GEMINI_API_KEY)
+    config = genai.types.GenerationConfig(max_output_tokens=8192, temperature=0.1)
     
-    data = {
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1,
-        "stream": True
-    }
-    
-    models_to_try = [
-        OPENROUTER_MODEL,
-        "openrouter/free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "liquid/lfm-2.5-1.2b-instruct:free"
-    ]
-    models_to_try = list(dict.fromkeys(models_to_try))
-    
-    last_error = None
-    for model_name in models_to_try:
-        data["model"] = model_name
-        try:
-            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, stream=True)
-            response.raise_for_status()
-            
-            for line in response.iter_lines():
-                if line:
-                    line_str = line.decode('utf-8')
-                    if line_str.startswith('data: ') and line_str != 'data: [DONE]':
-                        try:
-                            chunk = json.loads(line_str[6:])
-                            if 'choices' in chunk and len(chunk['choices']) > 0:
-                                content = chunk['choices'][0]['delta'].get('content', '')
-                                if content:
-                                    yield content
-                        except json.JSONDecodeError:
-                            pass
-            return  # Successfully completed stream
-        except Exception as e:
-            error_msg = str(e)
-            if hasattr(e, 'response') and e.response is not None:
-                error_msg = e.response.text
-            
-            if "429" in error_msg or "rate" in error_msg.lower():
-                print(f"[OpenRouter Fallback] {model_name} rate-limited. Trying next...")
-                last_error = error_msg
-                continue
-                
-            yield f"\n[OpenRouter API Error on {model_name}: {error_msg}]"
-            return
-            
-    yield f"\n[All OpenRouter Free models exhausted! Last error: {last_error}]"
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(prompt, stream=True, generation_config=config)
+        for chunk in response:
+            if chunk.text:
+                yield chunk.text
+    except Exception as e:
+        yield f"\n[Gemini API Error: {e}]"
 
 def check_system_status() -> dict:
     """Verify the system state, models, and data connectivity."""
     status = {
         'ready': True,
-        'model': OPENROUTER_MODEL,
+        'model': GEMINI_MODEL,
         'data_sources_loaded': len(DATA_SOURCES),
         'tables': [s['name'] for s in DATA_SOURCES.values()],
         'postgres_error': globals().get('PG_ERROR', None)
     }
-    if not OPENROUTER_API_KEY:
+    if not GEMINI_API_KEY:
         status['ready'] = False
-        status['error'] = 'OPENROUTER_API_KEY not set'
+        status['error'] = 'GEMINI_API_KEY not set'
     
     status['groq_ready'] = GROQ_AVAILABLE and bool(GROQ_API_KEY)
     return status
@@ -490,7 +422,7 @@ def get_all_sources_text() -> str:
     combined = "\n\n".join(texts)
     
     # If using Gemini, unlock massive context. If Groq, constrain to 4k characters.
-    limit = 500000 if OPENROUTER_API_KEY else 4000
+    limit = 500000 if GEMINI_API_KEY else 4000
     if len(combined) > limit:
         combined = combined[:limit] + "\n...[truncated due to strict token limits]..."
     return combined
@@ -556,7 +488,7 @@ def execute_pandas_code(dfs: dict, code: str) -> str:
 def health():
     return jsonify({
         'status': 'healthy',
-        'model': OPENROUTER_MODEL,
+        'model': GEMINI_MODEL,
         'data_sources': len(DATA_SOURCES),
         'sql_status': SQL_ERROR,
         'pg_status': PG_ERROR,
@@ -853,7 +785,7 @@ def analyze():
 
     status = check_system_status()
     if not status['ready']:
-        return jsonify({'success': False, 'error': status.get('error', 'OpenRouter not ready'),
+        return jsonify({'success': False, 'error': status.get('error', 'Gemini not ready'),
                         'insight': 'Check your GROQ_API_KEY in .env'}), 503
 
     if src_id:
@@ -946,7 +878,7 @@ def analyze_stream():
 
     status = check_system_status()
     if not status['ready']:
-        def err_stream(): yield "data: " + json.dumps({'error': 'OpenRouter not ready', 'done': True}) + "\n\n"
+        def err_stream(): yield "data: " + json.dumps({'error': 'Gemini not ready', 'done': True}) + "\n\n"
         return Response(err_stream(), mimetype='text/event-stream')
 
     source = get_active_source(src_id) if src_id else None
@@ -1023,7 +955,7 @@ def generate_dashboard():
 
     status = check_system_status()
     if not status['ready']:
-        return jsonify({'success': False, 'error': status.get('error', 'OpenRouter not ready')}), 503
+        return jsonify({'success': False, 'error': status.get('error', 'Gemini not ready')}), 503
 
     if src_id:
         active = get_active_source(src_id)
@@ -1099,7 +1031,7 @@ User request: {message}
 Blueprint:"""
 
     try:
-        if OPENROUTER_API_KEY:
+        if GEMINI_API_KEY and GEMINI_AVAILABLE:
             plan = ai_prompt(planner_prompt).strip()
         else:
             plan = ai_prompt(planner_prompt).strip()
@@ -1194,7 +1126,7 @@ Blueprint:"""
             "HTML:"
         )
 
-        if OPENROUTER_API_KEY:
+        if GEMINI_API_KEY and GEMINI_AVAILABLE:
             raw_html = ai_prompt(generator_prompt).strip()
         else:
             raw_html = ai_prompt(generator_prompt).strip()
@@ -1448,17 +1380,17 @@ if __name__ == '__main__':
     status = check_system_status()
 
     print("\n" + "=" * 60)
-    print("🤖  NexBot AI — Data Chatbot API (OpenRouter)")
+    print("🤖  NexBot AI — Data Chatbot API (Gemini)")
     print("=" * 60)
     print(f"📍  Port        : {port}")
-    print(f"🧠  Model       : {OPENROUTER_MODEL}")
-    print(f"🔑  Router Key  : {'✅ set' if OPENROUTER_API_KEY else '❌ missing — add OPENROUTER_API_KEY to .env'}")
+    print(f"🧠  Model       : {GEMINI_MODEL}")
+    print(f"🔑  Gemini Key  : {'✅ set' if GEMINI_API_KEY else '❌ missing — add GEMINI_API_KEY to .env'}")
     print(f"📦  pandas      : {'✅' if PANDAS_AVAILABLE else '❌ (install pandas)'}")
     print(f"🔐  bcrypt      : {'✅' if BCRYPT_AVAILABLE else '⚠️  optional (password hashing)'}")
     print(f"🐘  psycopg2    : {'✅' if POSTGRES_AVAILABLE else '⚠️  optional'}")
     print(f"🐬  pymysql     : {'✅' if MYSQL_AVAILABLE else '⚠️  optional'}")
     print(f"🗄️  pymssql     : {'✅' if PYMSSQL_AVAILABLE else '⚠️  optional (SQL Server)'}")
-    print(f"{'✅  OpenRouter ready!' if status['ready'] else '❌  ' + status.get('error','')}")
+    print(f"{'✅  Gemini ready!' if status['ready'] else '❌  ' + status.get('error','')}")
     print("─" * 60)
     print(f"🔌  Plugin Reg  : POST /api/v1/register (password-protected)")
     print(f"🗃️  License DB  : {LICENSE_DB_PATH}")
