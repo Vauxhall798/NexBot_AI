@@ -1106,7 +1106,7 @@ Blueprint:"""
 
         # Inject the full JSON data so the dashboard works instantly
         full_json_dict = {s['name']: s.get('data', []) for s in sources_to_use}
-        full_json = json.dumps(full_json_dict)
+        full_json = json.dumps(full_json_dict, default=str)
         data_script = f"\n<script>\n// Auto-injected datasets\nwindow.dashboardData = {full_json};\n</script>\n"
         
         # Inject right after <head> if it exists, otherwise prepend
