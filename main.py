@@ -61,6 +61,7 @@ CORS(app, resources={
 # ── Config ───────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 GROQ_MODEL   = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+GROQ_DASHBOARD_MODEL = os.getenv('GROQ_DASHBOARD_MODEL', 'qwen-2.5-coder-32b')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -248,20 +249,21 @@ def _groq_client():
 
 FALLBACK_GROQ_MODEL = 'llama-3.1-8b-instant'
 
-def groq_prompt(prompt: str, params: dict = None) -> str:
+def groq_prompt(prompt: str, params: dict = None, model: str = None) -> str:
     """Non-streaming Groq call — returns full response string."""
     p = params or GROQ_PARAMS_FAST
     client = _groq_client()
+    target_model = model or GROQ_MODEL
     try:
         completion = client.chat.completions.create(
-            model=GROQ_MODEL,
+            model=target_model,
             messages=[{'role': 'user', 'content': prompt}],
             **p
         )
         return completion.choices[0].message.content or ''
     except Exception as e:
         if '429' in str(e) or 'rate limit' in str(e).lower():
-            print(f"Rate limit hit on {GROQ_MODEL}, falling back to {FALLBACK_GROQ_MODEL}...")
+            print(f"Rate limit hit on {target_model}, falling back to {FALLBACK_GROQ_MODEL}...")
             try:
                 completion = client.chat.completions.create(
                     model=FALLBACK_GROQ_MODEL,
@@ -1043,7 +1045,7 @@ User request: {message}
 Blueprint:"""
 
     try:
-        plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_FAST).strip()
+        plan = groq_prompt(planner_prompt, params=GROQ_PARAMS_FAST, model=GROQ_DASHBOARD_MODEL).strip()
 
         # Check if the model returned a warning
         if plan.upper().startswith("WARNING:"):
@@ -1121,7 +1123,7 @@ Blueprint:"""
             "HTML:"
         )
 
-        raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH).strip()
+        raw_html = groq_prompt(generator_prompt, params=GROQ_PARAMS_DASH, model=GROQ_DASHBOARD_MODEL).strip()
         
         # Strip any accidental markdown fences
         if raw_html.startswith("```"):
