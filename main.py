@@ -72,7 +72,7 @@ CORS(app, resources={
 
 # ── Config ───────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 UPLOAD_DIR   = os.getenv('UPLOAD_DIR', 'uploads')
 DOWNLOAD_DIR = os.getenv('DOWNLOAD_DIR', 'downloads')
 CACHE_TTL    = int(os.getenv('DATA_CACHE_TTL', 300))
@@ -1193,17 +1193,22 @@ Blueprint:"""
             raw_html = re.sub(r'<think>.*?</think>', '', raw_html, flags=re.DOTALL).strip()
         
         # Robustly extract HTML to prevent blank pages from conversational filler
-        html_match = re.search(r'```(?:html)?\s*(.*?)\s*```', raw_html, re.DOTALL | re.IGNORECASE)
-        if html_match:
-            raw_html = html_match.group(1).strip()
-        elif "<html" in raw_html.lower():
-            # Fallback if no markdown blocks but HTML tags exist
-            start_idx = raw_html.lower().find("<html")
-            end_idx = raw_html.lower().rfind("</html>")
-            if end_idx != -1:
-                raw_html = raw_html[start_idx:end_idx + 7].strip()
-        
         raw_html = raw_html.strip()
+        # Remove opening ```html or ```
+        raw_html = re.sub(r'^```(?:html)?\s*', '', raw_html, flags=re.IGNORECASE)
+        # Remove closing ```
+        raw_html = re.sub(r'\s*```$', '', raw_html)
+        
+        # Fallback extraction if there's conversational text before the HTML
+        if "<!DOCTYPE" in raw_html.upper():
+            raw_html = raw_html[raw_html.upper().find("<!DOCTYPE"):]
+        elif "<html" in raw_html.lower():
+            raw_html = raw_html[raw_html.lower().find("<html"):]
+        
+        # Clean up any trailing conversational text
+        end_idx = raw_html.lower().rfind("</html>")
+        if end_idx != -1:
+            raw_html = raw_html[:end_idx + 7]
 
         # Inject the full JSON data so the dashboard works instantly
         full_json_dict = {s['name']: s.get('data', []) for s in sources_to_use}
