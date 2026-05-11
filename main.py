@@ -251,7 +251,7 @@ def verify_api_key():
 
 
 def ai_prompt(prompt: str, params: dict = None) -> str:
-    """Non-streaming OpenRouter API call."""
+    """Non-streaming OpenRouter API call with auto-fallback."""
     if not OPENROUTER_API_KEY:
         raise Exception("OPENROUTER_API_KEY not configured. Please add it to your .env file.")
     
@@ -261,23 +261,43 @@ def ai_prompt(prompt: str, params: dict = None) -> str:
     }
     
     data = {
-        "model": OPENROUTER_MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.1
     }
     
-    try:
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
-        response.raise_for_status()
-        return response.json()['choices'][0]['message']['content'] or ''
-    except Exception as e:
-        error_msg = str(e)
-        if hasattr(e, 'response') and e.response is not None:
-            error_msg = e.response.text
-        raise Exception(f"OpenRouter API error: {error_msg}")
+    models_to_try = [
+        OPENROUTER_MODEL,
+        "google/gemini-2.0-flash-lite-preview-02-05:free",
+        "qwen/qwen-2.5-72b-instruct:free",
+        "mistralai/mistral-nemo:free",
+        "nvidia/llama-3.1-nemotron-70b-instruct:free"
+    ]
+    
+    # Remove duplicates while preserving order
+    models_to_try = list(dict.fromkeys(models_to_try))
+    
+    last_error = None
+    for model_name in models_to_try:
+        data["model"] = model_name
+        try:
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data)
+            response.raise_for_status()
+            return response.json()['choices'][0]['message']['content'] or ''
+        except Exception as e:
+            error_msg = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                error_msg = e.response.text
+            
+            if "429" in error_msg or "rate" in error_msg.lower():
+                print(f"[OpenRouter Fallback] {model_name} rate-limited. Trying next...")
+                last_error = error_msg
+                continue
+            raise Exception(f"OpenRouter API error on {model_name}: {error_msg}")
+            
+    raise Exception(f"All OpenRouter Free models exhausted! Last error: {last_error}")
 
 def ai_stream(prompt: str, params: dict = None):
-    """Generator that yields text tokens from OpenRouter streaming API."""
+    """Generator that yields text tokens from OpenRouter streaming API with fallback."""
     if not OPENROUTER_API_KEY:
         raise Exception("OPENROUTER_API_KEY not configured. Please add it to your .env file.")
         
@@ -287,33 +307,54 @@ def ai_stream(prompt: str, params: dict = None):
     }
     
     data = {
-        "model": OPENROUTER_MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.1,
         "stream": True
     }
     
-    try:
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, stream=True)
-        response.raise_for_status()
-        
-        for line in response.iter_lines():
-            if line:
-                line_str = line.decode('utf-8')
-                if line_str.startswith('data: ') and line_str != 'data: [DONE]':
-                    try:
-                        chunk = json.loads(line_str[6:])
-                        if 'choices' in chunk and len(chunk['choices']) > 0:
-                            content = chunk['choices'][0]['delta'].get('content', '')
-                            if content:
-                                yield content
-                    except json.JSONDecodeError:
-                        pass
-    except Exception as e:
-        error_msg = str(e)
-        if hasattr(e, 'response') and e.response is not None:
-            error_msg = e.response.text
-        yield f"\n[OpenRouter API Error: {error_msg}]"
+    models_to_try = [
+        OPENROUTER_MODEL,
+        "google/gemini-2.0-flash-lite-preview-02-05:free",
+        "qwen/qwen-2.5-72b-instruct:free",
+        "mistralai/mistral-nemo:free",
+        "nvidia/llama-3.1-nemotron-70b-instruct:free"
+    ]
+    models_to_try = list(dict.fromkeys(models_to_try))
+    
+    last_error = None
+    for model_name in models_to_try:
+        data["model"] = model_name
+        try:
+            response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=data, stream=True)
+            response.raise_for_status()
+            
+            for line in response.iter_lines():
+                if line:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data: ') and line_str != 'data: [DONE]':
+                        try:
+                            chunk = json.loads(line_str[6:])
+                            if 'choices' in chunk and len(chunk['choices']) > 0:
+                                content = chunk['choices'][0]['delta'].get('content', '')
+                                if content:
+                                    yield content
+                        except json.JSONDecodeError:
+                            pass
+            return  # Successfully completed stream
+        except Exception as e:
+            error_msg = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                error_msg = e.response.text
+            
+            if "429" in error_msg or "rate" in error_msg.lower():
+                print(f"[OpenRouter Fallback] {model_name} rate-limited. Trying next...")
+                last_error = error_msg
+                continue
+                
+            yield f"\n[OpenRouter API Error on {model_name}: {error_msg}]"
+            return
+            
+    yield f"\n[All OpenRouter Free models exhausted! Last error: {last_error}]"
 
 def check_system_status() -> dict:
     """Verify the system state, models, and data connectivity."""
