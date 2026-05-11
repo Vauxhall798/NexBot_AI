@@ -754,6 +754,11 @@ def _parse_mysql(conn_str: str) -> dict:
 
 # ── Analyze endpoint ──────────────────────────────────────────────────────────
 
+@app.route('/api/v1/status', methods=['GET', 'OPTIONS'])
+def get_system_status():
+    if request.method == 'OPTIONS': return _corsify_actual_response(jsonify({'success':True}))
+    return jsonify(check_system_status())
+
 @app.route('/api/v1/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
     if request.method == 'OPTIONS':
