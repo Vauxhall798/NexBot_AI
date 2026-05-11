@@ -257,8 +257,8 @@ def gemini_prompt(prompt: str, params: dict = None) -> str:
     except Exception as e:
         error_str = str(e).lower()
         if '429' in error_str or 'quota' in error_str or 'rate' in error_str:
-            print(f"[API FALLBACK] 429 Rate Limit Hit on {GEMINI_MODEL}. Falling back to gemini-1.5-flash-8b...")
-            fallback_model = genai.GenerativeModel('gemini-1.5-flash-8b')
+            print(f"[API FALLBACK] 429 Rate Limit Hit on {GEMINI_MODEL}. Falling back to gemini-1.5-flash...")
+            fallback_model = genai.GenerativeModel('gemini-1.5-flash')
             try:
                 response = fallback_model.generate_content(prompt)
                 return response.text or ''
@@ -283,8 +283,8 @@ def gemini_stream(prompt: str, params: dict = None):
     except Exception as e:
         error_str = str(e).lower()
         if '429' in error_str or 'quota' in error_str or 'rate' in error_str:
-            print(f"[API FALLBACK] 429 Rate Limit Hit on {GEMINI_MODEL}. Falling back to gemini-1.5-flash-8b...")
-            fallback_model = genai.GenerativeModel('gemini-1.5-flash-8b')
+            print(f"[API FALLBACK] 429 Rate Limit Hit on {GEMINI_MODEL}. Falling back to gemini-1.5-flash...")
+            fallback_model = genai.GenerativeModel('gemini-1.5-flash')
             try:
                 response = fallback_model.generate_content(prompt, stream=True)
                 for chunk in response:
