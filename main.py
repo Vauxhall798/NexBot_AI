@@ -1006,8 +1006,8 @@ Output a detailed blueprint with:
    - x_column: exact column name for labels/x-axis
    - y_column: exact column name(s) for values/y-axis (comma-separated if multiple)
    - description: brief note on what insight this reveals
-4. Styling: Modern light premium aesthetic — background #f8fafc, sidebar #111827, cards #ffffff with subtle shadows, accent colors from [#6366f1, #10b981, #f43f5e], rounded corners.
-5. Intelligent Features: Plan a layout with a Sidebar navigation, KPI trend badges, Predictive/Anomaly detection spaces, and Dynamic Summary text.
+4. Styling: Modern light premium aesthetic — background #f8fafc, cards #ffffff with subtle shadows, accent colors from [#6366f1, #10b981, #f43f5e], rounded corners. No sidebar.
+5. Intelligent Features: Plan a layout with KPI trend badges, Predictive/Anomaly detection spaces, and an Executive Summary text block.
 
 Data sample:
 {data_text}
@@ -1077,18 +1077,17 @@ Blueprint:"""
             "EXECUTIVE UI/UX & CSS RULES:\n"
             "1. Output ONLY valid HTML — no markdown fences, no text outside the HTML.\n"
             "2. ONLY internal style blocks. Import Google Fonts Inter (wght 300;400;500;600;700).\n"
-            "3. Layout: Modern sidebar layout. `body` { display: flex; margin: 0; background: #f8fafc; font-family: 'Inter', sans-serif; min-height: 100vh; color: #1e293b; }\n"
-            "4. Sidebar: width 260px, background #0f172a, color #f8fafc, padding 24px. Style nav links nicely (list-style none, padding 12px, hover backgrounds, rounded corners).\n"
-            "5. Main Content: flex 1, padding 40px, overflow-y auto. Max-width 1600px.\n"
-            "6. Dashboard header: Professional h1, subtitle in #64748b.\n"
-            "7. KPI row: CSS grid repeat(auto-fit, minmax(240px, 1fr)) gap 24px. Cards: bg #fff, border 1px solid #e2e8f0, border-radius 16px, padding 24px, shadow-sm.\n"
+            "3. Layout: Clean, full-width executive layout. `body` { padding: 40px; margin: 0; background: #f8fafc; font-family: 'Inter', sans-serif; min-height: 100vh; color: #1e293b; }\n"
+            "4. Container: Wrap content in a container with `max-width: 1400px; margin: 0 auto;`.\n"
+            "5. Dashboard header: Professional h1, subtitle in #64748b.\n"
+            "6. KPI row: CSS grid repeat(auto-fit, minmax(240px, 1fr)) gap 24px. Cards: bg #fff, border 1px solid #e2e8f0, border-radius 16px, padding 24px, shadow-sm.\n"
             "8. Chart cards: Same styling as KPI cards. Ensure chart containers have a fixed height (e.g. `height: 320px; position: relative;`).\n"
             "9. Colors: Use #6366f1 (Indigo), #10b981 (Emerald), #f43f5e (Rose), #f59e0b (Amber). Chart.js defaults: color='#64748b', borderColor='#f1f5f9'.\n\n"
             "EXECUTIVE JAVASCRIPT LOGIC (CRITICAL):\n"
             "1. NEVER use placeholder text for insights. Write real JS to compute a 'Dynamic Executive Summary' (e.g., find max/min values, compute growth, and inject real text into the DOM).\n"
             "2. FORMATTING: Use `Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })` to format large numbers (e.g. 1.8M instead of 1862300).\n"
             "3. DATES: Format timestamps beautifully using `new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })`. NO RAW ISO STRINGS on the X-axis.\n"
-            "4. TOP N CHARTS: If a chart asks for 'Top 5', you MUST use `.sort((a,b)=>b.v-a.v).slice(0, 5)` in JS. Do NOT plot 50 items.\n"
+            "4. TOP N CHARTS: If a chart asks for 'Top 5', you MUST use `.sort((a,b) => b[valueKey] - a[valueKey]).slice(0, 5)` in JS (replace valueKey with the actual column name). Do NOT plot 50 items.\n"
             "5. CHART OPTIONS: Always pass `options: { responsive: true, maintainAspectRatio: false }` so charts fit their cards without overflowing.\n"
             "6. KPI BADGES: Calculate real % change if data allows, or draw logical trend badges. Style them beautifully (green bg-emerald-100 text-emerald-700 or red bg-rose-100 text-rose-700).\n"
             "HTML:"
