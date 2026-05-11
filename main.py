@@ -446,10 +446,15 @@ def execute_pandas_code(dfs: dict, code: str) -> str:
     try:
         with contextlib.redirect_stdout(output):
             exec(code, namespace)
-        result = output.getvalue()
-        if not result.strip():
+        result = output.getvalue().strip()
+        if not result:
             return "Code executed successfully but produced no output."
-        return result.strip()
+        
+        # Protect against massive outputs triggering Groq 413 Rate Limit (Max ~12,000 TPM)
+        if len(result) > 4000:
+            result = result[:4000] + "\n...[Output truncated due to excessive length. The data was too large to print fully.]..."
+            
+        return result
     except Exception as e:
         return f"Error executing code: {e}"
 
