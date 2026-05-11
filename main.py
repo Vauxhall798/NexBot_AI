@@ -943,11 +943,20 @@ def generate_dashboard():
     if not status['ready']:
         return jsonify({'success': False, 'error': status.get('error', 'Groq not ready')}), 503
 
-    source = get_active_source(src_id)
-    if not source:
-        return jsonify({'success': False, 'error': 'No data source available. Upload a file or connect a database first.'}), 400
+    if src_id:
+        active = get_active_source(src_id)
+        if not active:
+            return jsonify({'success': False, 'error': 'No data source available. Upload a file or connect a database first.'}), 400
+        sources_to_use = [active]
+    else:
+        sources_to_use = list(DATA_SOURCES.values())
+        if not sources_to_use:
+            return jsonify({'success': False, 'error': 'No data source available. Upload a file or connect a database first.'}), 400
 
-    data_text = data_to_text(source)
+    if len(sources_to_use) == 1:
+        data_text = data_to_text(sources_to_use[0])
+    else:
+        data_text = get_all_sources_text()
 
     # STEP 1: Plan the dashboard
     planner_prompt = f"""You are an expert data analyst and UX designer. Given the data sample and user request, create a detailed blueprint for a premium Chart.js dashboard.
@@ -1035,7 +1044,7 @@ Blueprint:"""
             "       return parseFloat(av) - parseFloat(bv);\n"
             "     });\n"
             "   }\n"
-            "   // Usage: var sorted = sortByTime(window.dashboardData, 'month_col');\n"
+            "   // Usage: var sorted = sortByTime(window.dashboardData['table_name'], 'month_col');\n"
             "   // labels = sorted.map(function(r){ return r.month_col; });\n"
             "   // values = sorted.map(function(r){ return parseFloat(r.val_col)||0; });\n"
         )
@@ -1046,8 +1055,8 @@ Blueprint:"""
             "Blueprint:\n" + plan + "\n\n"
             "Data Schema Sample (for column reference only — do NOT hardcode any values):\n" + data_text + "\n\n"
             "JAVASCRIPT & DATA RULES:\n"
-            "1. The full dataset is in `window.dashboardData` (array of JSON objects) — use it for ALL values.\n"
-            "2. Dynamically compute KPI values and chart arrays by iterating `window.dashboardData`.\n"
+            "1. The datasets are in `window.dashboardData` (dictionary mapping table names to arrays of JSON objects). Use it for ALL values. Example: `window.dashboardData['Table_Name']`.\n"
+            "2. Dynamically compute KPI values and chart arrays by iterating the arrays in `window.dashboardData`.\n"
             "3. Parse strings to numbers where needed: parseFloat(v) || 0.\n"
             "4. CRITICAL — SORT TIME-SERIES CHRONOLOGICALLY. You MUST copy and use this helper "
             "for EVERY chart that has a time/month/date axis — do NOT rely on the data's original order:\n\n"
@@ -1101,8 +1110,9 @@ Blueprint:"""
         raw_html = raw_html.strip()
 
         # Inject the full JSON data so the dashboard works instantly
-        full_json = json.dumps(source.get('data', []))
-        data_script = f"\n<script>\n// Auto-injected dataset\nwindow.dashboardData = {full_json};\n</script>\n"
+        full_json_dict = {s['name']: s.get('data', []) for s in sources_to_use}
+        full_json = json.dumps(full_json_dict)
+        data_script = f"\n<script>\n// Auto-injected datasets\nwindow.dashboardData = {full_json};\n</script>\n"
         
         # Inject right after <head> if it exists, otherwise prepend
         if "<head>" in raw_html.lower():
