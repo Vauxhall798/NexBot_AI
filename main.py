@@ -861,7 +861,10 @@ We have the following pandas DataFrames loaded:
 User Input: {message}
 
 Instructions:
-1. ANALYSIS: If the user asks for insights, summaries, or questions about the data, ALWAYS write a Python script using pandas. Output ONLY a ```python ... ``` code block        # Data query path
+1. ANALYSIS: If the user asks for insights, summaries, or questions about the data, ALWAYS write a Python script using pandas. Output ONLY a ```python ... ``` code block.
+"""
+        # Data query path
+        code_resp = groq_prompt(code_prompt)
         code = extract_python_code(code_resp)
         exec_result = execute_pandas_code(dfs, code)
         
@@ -892,7 +895,7 @@ def analyze_stream():
 
     status = check_system_status()
     if not status['groq_ready']:
-        def err_stream(): yield f"data: {json.dumps({'error': 'Groq not ready', 'done': True})}\n\n"
+        def err_stream(): yield "data: " + json.dumps({'error': 'Groq not ready', 'done': True}) + "\n\n"
         return Response(err_stream(), mimetype='text/event-stream')
 
     source = get_active_source(src_id) if src_id else None
@@ -900,8 +903,8 @@ def analyze_stream():
     cached = _get_cached(ckey)
     if cached:
         def cached_stream():
-            yield f"data: {json.dumps({'token': cached, 'done': False})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'cached': True})}\n\n"
+            yield "data: " + json.dumps({'token': cached, 'done': False}) + "\n\n"
+            yield "data: " + json.dumps({'done': True, 'cached': True}) + "\n\n"
         return Response(stream_with_context(cached_stream()), mimetype='text/event-stream')
 
     def generate():
@@ -913,51 +916,28 @@ def analyze_stream():
             code_resp = groq_prompt(code_prompt)
             
             if '```python' not in code_resp.lower():
-                yield f"data: {json.dumps({'token': code_resp.strip(), 'done': False})}\n\n"
+                yield "data: " + json.dumps({'token': code_resp.strip(), 'done': False}) + "\n\n"
                 _set_cached(ckey, code_resp.strip())
-                yield f"data: {json.dumps({'done': True})}\n\n"
+                yield "data: " + json.dumps({'done': True}) + "\n\n"
                 return
 
             code = extract_python_code(code_resp)
-            yield f"data: {json.dumps({'token': '⚙️ Analyzing...\n\n', 'done': False})}\n\n"
+            yield "data: " + json.dumps({'token': '⚙️ Analyzing...\n\n', 'done': False}) + "\n\n"
             exec_res = execute_pandas_code(dfs, code)
             
             final_p = f"User: {message}\nResult: {exec_res}\nExplain as NexBot."
             full_ans = []
             for token in groq_stream(final_p):
                 full_ans.append(token)
-                yield f"data: {json.dumps({'token': token, 'done': False})}\n\n"
+                yield "data: " + json.dumps({'token': token, 'done': False}) + "\n\n"
             _set_cached(ckey, "".join(full_ans))
-            yield f"data: {json.dumps({'done': True})}\n\n"
+            yield "data: " + json.dumps({'done': True}) + "\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+            yield "data: " + json.dumps({'error': str(e), 'done': True}) + "\n\n"
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 # ── Dashboard endpoint ────────────────────────────────────────────────────────
-
-@app.route('/api/v1/dashboard/generate', methods=['POST', 'OPTIONS'])
-def generate_dashboard():
-    if request.method == 'OPTIONS': return '', 204
-    user, err, code = verify_api_key()
-    if err: return err, codeen in gemini_stream(final_prompt):
-                full.append(token)
-                token_msg = {'token': token, 'done': False}
-                yield f"data: {json.dumps(token_msg)}\n\n"
-                
-            combined = ''.join(full).strip()
-            # Prefix the original thought process to the cached version so it looks consistent on reload
-            _set_cached(ckey, f"🧠 Thought Process: Wrote query -> Executed\n\n{combined}")
-            final_msg = {'done': True, 'cached': False}
-            yield f"data: {json.dumps(final_msg)}\n\n"
-            
-        except Exception as e:
-            err_msg = {'error': str(e), 'done': True}
-            yield f"data: {json.dumps(err_msg)}\n\n"
-
-    return Response(stream_with_context(generate()), mimetype='text/event-stream',
-                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
-
 
 # ── Dashboard endpoint ────────────────────────────────────────────────────────
 
