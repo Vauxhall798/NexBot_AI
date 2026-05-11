@@ -1008,6 +1008,7 @@ Output a detailed blueprint with:
    - description: brief note on what insight this reveals
 4. Styling: Modern light premium aesthetic — background #f8fafc, cards #ffffff with subtle shadows, accent colors from [#6366f1, #10b981, #f43f5e], rounded corners. No sidebar.
 5. Intelligent Features: Plan a layout with KPI trend badges, Predictive/Anomaly detection spaces, and an Executive Summary text block.
+6. Multi-Table Analysis: Understand the tables in the DB and their relationships. If relationships exist, design cross-table insight charts. If no relationships exist, ensure you provide at least one Executive Insight chart for EACH table separately to drive decision making.
 
 Data sample:
 {data_text}
@@ -1056,7 +1057,7 @@ Blueprint:"""
             "Blueprint:\n" + plan + "\n\n"
             "Data Schema Sample (for column reference only — do NOT hardcode any values):\n" + data_text + "\n\n"
             "JAVASCRIPT & DATA RULES:\n"
-            "1. The datasets are in `window.dashboardData` (dictionary mapping table names to arrays of JSON objects). Use it for ALL values. Example: `window.dashboardData['Table_Name']`.\n"
+            "1. The datasets are in `window.dashboardData`. Use EXACT table names from the schema below (case-sensitive). Example: `window.dashboardData['exact_table_name']`.\n"
             "2. Dynamically compute KPI values and chart arrays by iterating the arrays in `window.dashboardData`.\n"
             "3. Parse strings to numbers where needed: parseFloat(v) || 0.\n"
             "4. CRITICAL — SORT TIME-SERIES CHRONOLOGICALLY. You MUST copy and use this helper "
@@ -1087,7 +1088,7 @@ Blueprint:"""
             "1. INSIGHTS: The 'Dynamic Executive Summary' MUST identify the highest performing category/product, note major trends (e.g., 'Revenue spiked in March'), and provide a strategic recommendation. Do NOT just repeat the KPI numbers.\n"
             "2. FORMATTING: Use `Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })` to format large numbers (e.g. 1.8M instead of 1862300).\n"
             "3. DATES: Format timestamps beautifully using `new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })`. NO RAW ISO STRINGS on the X-axis.\n"
-            "4. TOP N CHARTS: If a chart asks for 'Top 5', you MUST use `.sort((a,b) => b[valueKey] - a[valueKey]).slice(0, 5)` in JS (replace valueKey with the actual column name). Do NOT plot 50 items.\n"
+            "4. DATA LIMITS: If 'Top N', use `.sort((a,b) => b[valKey] - a[valKey]).slice(0, N)`. For Line/Bar charts, if the dataset has >30 rows, you MUST aggregate the data in JS (e.g. sum by month) or `.slice(-30)` the most recent points. Do NOT plot hundreds of points as it makes the chart unreadable.\n"
             "5. NO HTML CHARTS: ALL charts MUST be drawn using Chart.js `<canvas>`. NEVER draw charts using raw HTML `<div>` elements with dynamic heights, as they cause massive overflow bugs.\n"
             "6. CHART OPTIONS: Always pass `options: { responsive: true, maintainAspectRatio: false }` to Chart.js.\n"
             "7. KPI BADGES: Must contain actual text (e.g., '+12.4%'). Do NOT draw empty circles or pills. Style them nicely (e.g., green bg-emerald-100 text-emerald-700).\n"
