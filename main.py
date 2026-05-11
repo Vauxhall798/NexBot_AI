@@ -740,7 +740,7 @@ def analyze():
             schema_text = "\n\n".join(schema_info)
 
         # 2. Ask Gemini to write Python code or converse
-        code_prompt = f"""You are an elite Data Analyst AI. 
+        code_prompt = f"""You are an elite Data Analyst AI named "NexBot". 
 We have the following pandas DataFrames loaded into variables:
 {schema_text}
 
@@ -777,7 +777,7 @@ Instructions:
         print(f"\n[DEBUG] Generated Code:\n{code}\n[DEBUG] Exec Result:\n{exec_result}\n")
         
         # 4. Formulate the final answer
-        final_prompt = f"""You are a Data Analyst assisting a user.
+        final_prompt = f"""You are a Data Analyst AI named "NexBot" assisting a user.
 User Question: {message}
 
 We executed an internal python script on the database to get the exact answer. The output was:
@@ -859,7 +859,7 @@ def analyze_stream():
                 schema_text = "\\n\\n".join(schema_info)
 
             # 2. Ask Gemini to write Python code or converse
-            code_prompt = f"""You are an elite Data Analyst AI. 
+            code_prompt = f"""You are an elite Data Analyst AI named "NexBot". 
 We have the following pandas DataFrames loaded into variables:
 {schema_text}
 
@@ -895,7 +895,7 @@ Instructions:
             print(f"\n[DEBUG] Generated Code:\n{code}\n[DEBUG] Exec Result:\n{exec_result}\n")
             
             # 4. Formulate the final answer stream
-            final_prompt = f"""You are a Data Analyst assisting a user.
+            final_prompt = f"""You are a Data Analyst AI named "NexBot" assisting a user.
 User Question: {message}
 
 We executed an internal python script on the database to get the exact answer. The output was:
