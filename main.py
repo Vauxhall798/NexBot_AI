@@ -1001,15 +1001,15 @@ CHART TYPE CATALOGUE — pick the BEST type(s) from below based on the data and 
 Output a detailed blueprint with:
 1. Dashboard Title: A catchy, professional title.
 2. KPI Cards: 3-4 specific KPI metrics with exact calculation logic (sum, avg, count, max, min).
-3. Charts: For each chart specify:
+3. Charts: Strictly limit the dashboard to a MAXIMUM of 4 premium, high-impact charts. For each chart specify:
    - chart_type: one of the keys above (e.g. "bar", "line", "heatmap")
    - title: chart title
    - x_column: exact column name for labels/x-axis
    - y_column: exact column name(s) for values/y-axis (comma-separated if multiple)
    - description: brief note on what insight this reveals
 4. Styling: Modern light premium aesthetic — background #f8fafc, cards #ffffff with subtle shadows, accent colors from [#6366f1, #10b981, #f43f5e], rounded corners. No sidebar.
-5. Intelligent Features: Plan a layout with KPI trend badges, Predictive/Anomaly detection spaces, and an Executive Summary text block.
-6. Multi-Table Analysis: Understand the tables in the DB and their relationships. If relationships exist, design cross-table insight charts. If no relationships exist, ensure you provide at least one Executive Insight chart for EACH table separately to drive decision making.
+5. Intelligent Features: Plan a layout with KPI trend badges, an Executive Summary text block, and mention the interactive drill-down capability.
+6. Chart Limitations (CRITICAL): Do NOT generate a chart for every single table. Identify ONLY the top 3 or 4 most important business insights across the entire database and chart those. Less is more.
 
 Data sample:
 {data_text}
