@@ -1070,7 +1070,7 @@ Blueprint:"""
 
         generator_prompt = (
             "You are a senior frontend developer specialising in data visualisation. "
-            "Generate a COMPLETE, self-contained HTML page that implements the following dashboard blueprint.\n\n"
+            "Generate a COMPLETE HTML page that implements the following dashboard blueprint. NEVER output mock data or define window.dashboardData yourself.\n\n"
             "Blueprint:\n" + plan + "\n\n"
             "Data Schema Sample (for column reference only — do NOT hardcode any values):\n" + data_text + "\n\n"
             "EXECUTIVE UI/UX & CSS RULES:\n"
@@ -1219,13 +1219,14 @@ window.exportToHTML = function() {{
 </script>
 """
         
-        # Inject right after <head> if it exists, otherwise prepend
-        if "<head>" in raw_html.lower():
-            raw_html = raw_html.replace("<head>", f"<head>{data_script}", 1)
-        elif "<body>" in raw_html.lower():
-            raw_html = raw_html.replace("<body>", f"<body>{data_script}", 1)
+        # Inject right before </body> to ensure it OVERWRITES any AI-generated mock data
+        if "</body>" in raw_html.lower():
+            # Use regex for case-insensitive replacement with count=1
+            raw_html = re.sub(r'</body>', lambda m: f"{data_script}\n</body>", raw_html, count=1, flags=re.IGNORECASE)
+        elif "</html>" in raw_html.lower():
+            raw_html = re.sub(r'</html>', lambda m: f"{data_script}\n</html>", raw_html, count=1, flags=re.IGNORECASE)
         else:
-            raw_html = data_script + raw_html
+            raw_html = raw_html + data_script
 
         # Always save to a file so the user can download it natively
         fname   = f"dashboard_{uuid.uuid4().hex[:8]}.html"
