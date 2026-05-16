@@ -258,10 +258,10 @@ def ai_prompt(prompt: str, params: dict = None) -> str:
         raise Exception("GEMINI_API_KEY not configured. Please add it to your .env file.")
     
     genai.configure(api_key=GEMINI_API_KEY)
-    config = genai.types.GenerationConfig(max_output_tokens=8192, temperature=0.1)
     
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
+        config = genai.types.GenerationConfig(temperature=0.1)
         response = model.generate_content(prompt, generation_config=config)
         return response.text or ''
     except Exception as e:
@@ -275,10 +275,9 @@ def ai_stream(prompt: str, params: dict = None):
         raise Exception("GEMINI_API_KEY not configured. Please add it to your .env file.")
         
     genai.configure(api_key=GEMINI_API_KEY)
-    config = genai.types.GenerationConfig(max_output_tokens=8192, temperature=0.1)
-    
     try:
         model = genai.GenerativeModel(GEMINI_MODEL)
+        config = genai.types.GenerationConfig(temperature=0.1)
         response = model.generate_content(prompt, stream=True, generation_config=config)
         for chunk in response:
             if chunk.text:
@@ -421,8 +420,8 @@ def get_all_sources_text() -> str:
         texts.append(f"Table: {s['name']}\n{data_to_text(s)}")
     combined = "\n\n".join(texts)
     
-    # If using Gemini, unlock massive context. If Groq, constrain to 4k characters.
-    limit = 500000 if GEMINI_API_KEY else 4000
+    # Limit to a reasonable size so we don't confuse the model with excessive tabular data
+    limit = 8000
     if len(combined) > limit:
         combined = combined[:limit] + "\n...[truncated due to strict token limits]..."
     return combined
@@ -1086,10 +1085,11 @@ Blueprint:"""
             "9. COLORS (CRITICAL): You MUST declare `const CHART_COLORS = ['#4f46e5', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];` globally. \n"
             "10. KPI STYLING & CHART CONFIG: Make KPI numbers huge (`font-size: 2.5rem; font-weight: 700;`) and add subtle % trend indicators. You MUST configure Chart.js with `responsive: true, maintainAspectRatio: false`.\n\n"
             "JAVASCRIPT & DATA RULES:\n"
-            "1. NEVER WRITE JAVASCRIPT TO GENERATE MOCK OR DUMMY DATA. Do NOT write `for` loops to create random arrays. The REAL data is ALREADY injected into `window.dashboardData`.\n"
+            "1. NEVER WRITE JAVASCRIPT TO GENERATE MOCK OR DUMMY DATA. The JSON data is automatically injected into the page by the backend. DO NOT define, mock, or assign `window.dashboardData` in your code. Assume it already exists in the global scope.\n"
             "2. The datasets are in `window.dashboardData`. Use EXACT table names from the schema below (case-sensitive). Example: `window.dashboardData['exact_table_name']`.\n"
-            "3. Dynamically compute KPI values and chart arrays by iterating the arrays in `window.dashboardData`.\n"
-            "4. Parse strings to numbers where needed: parseFloat(v) || 0.\n"
+            "3. CODE LENGTH CAP: Keep your code EXTREMELY brief. Use generic, reusable functions instead of duplicating logic for every chart. DO NOT write bloated code.\n"
+            "4. Dynamically compute KPI values and chart arrays by iterating the arrays in `window.dashboardData`.\n"
+            "5. Parse strings to numbers where needed: parseFloat(v) || 0.\n"
             "5. CRITICAL — SORT TIME-SERIES CHRONOLOGICALLY. You MUST copy and use this helper "
             "for EVERY chart that has a time/month/date axis — do NOT rely on the data's original order:\n\n"
             + _SORT_HELPER +
@@ -1115,7 +1115,7 @@ Blueprint:"""
             "1. INSIGHTS: ONLY generate a 'Dynamic Executive Summary' text block IF the blueprint specifically asks for one (e.g. if the user asked for a report). If there is no summary in the blueprint, do NOT generate that HTML div. If you do generate it, use <b> tags for all key entities, product names, and high-impact numbers.\n"
             "2. FORMATTING: Use `Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })` to format large numbers (e.g. 1.8M instead of 1862300).\n"
             "3. DATES: Format timestamps beautifully using `new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })`.\n"
-            "4. CROSS-VALIDATION (CRITICAL): Add an `onClick` event to EVERY Chart.js instance. When a user clicks a bar, line point, or pie slice, extract the clicked label/category. Then, filter `window.dashboardData` to find all raw rows matching that category, and dynamically generate an HTML table inside `#data-table-container` showing the underlying raw data rows so the user can cross-validate the numbers. Scroll the user down to see the table.\n"
+            "4. CROSS-VALIDATION (CRITICAL): Add an `onClick` event to EVERY Chart.js instance. When a user clicks a bar, line point, or pie slice, extract the clicked label/category. Then, filter `window.dashboardData` to find all raw rows matching that category, and dynamically generate an HTML table inside `#data-table-container` showing the underlying raw data rows so the user can cross-validate the numbers. Scroll the user down to see the table. IMPORTANT: Use `Object.keys(filteredData[0])` to dynamically generate table headers. DO NOT hardcode the column names for every chart in the click handler.\n"
             "4. DATA LIMITS: If 'Top N', use `.sort((a,b) => b[valKey] - a[valKey]).slice(0, N)`. For Line/Bar charts, if the dataset has >30 rows, you MUST aggregate the data in JS (e.g. sum by month) or `.slice(-30)` the most recent points. Do NOT plot hundreds of points as it makes the chart unreadable.\n"
             "5. NO HTML CHARTS: ALL charts MUST be drawn using Chart.js `<canvas>`. NEVER draw charts using raw HTML `<div>` elements with dynamic heights, as they cause massive overflow bugs.\n"
             "6. CHART OPTIONS: Always pass `options: { responsive: true, maintainAspectRatio: false }` to Chart.js.\n"
@@ -1150,6 +1150,10 @@ Blueprint:"""
         end_idx = raw_html.lower().rfind("</html>")
         if end_idx != -1:
             raw_html = raw_html[:end_idx + 7]
+        else:
+            if "<script" in raw_html.lower() and "</script>" not in raw_html.lower().split("<script")[-1]:
+                raw_html += "\n</script>\n"
+            raw_html += "\n</body>\n</html>"
 
         # Inject the full JSON data so the dashboard works instantly
         full_json_dict = {s['name']: s.get('data', []) for s in sources_to_use}
